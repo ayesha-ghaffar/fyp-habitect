@@ -66,16 +66,16 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         textTheme: const TextTheme(
           headlineLarge: TextStyle(
-            fontSize: 24,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
           bodyLarge: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             color: Colors.black54,
           ),
           labelLarge: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
