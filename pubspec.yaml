@@ -1,0 +1,105 @@
+name: fyp
+description: "A new Flutter project."
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.3
+  firebase_database: ^11.3.5
+  fluttertoast: ^8.2.12
+  email_validator: ^3.0.0
+  image_picker: ^1.1.2
+  remixicon: ^1.4.1
+  intl: ^0.20.2
+  flutter_svg: ^2.1.0
+
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+
+  flutter_lints: ^5.0.0
+
+
+flutter:
+
+  uses-material-design: true
+
+  fonts:
+    - family: Georama
+      fonts:
+        - asset: assets/fonts/Georama/Georama-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Georama/Georama-SemiBold.ttf
+          weight: 600
+    - family: Judson
+      fonts:
+        - asset: assets/fonts/Judson/Judson-Bold.ttf
+  assets:
+     - assets/images/logo.png
+     - assets/images/Modern Villa.jpg
+     - assets/images/Urban Cafe.jpg
+     - assets/images/Hillside Residence.jpg
+     - assets/images/Nexus Office.jpg
+     - assets/images/Boutique.jpg
+     - assets/images/empty_portfolio.png
+     - assets/icons/active.svg
+     - assets/icons/add.svg
+     - assets/icons/bookmark.svg
+     - assets/icons/bookmark-fill.svg
+     - assets/icons/business.svg
+     - assets/icons/calendar.svg
+     - assets/icons/circle.svg
+     - assets/icons/close.svg
+     - assets/icons/files.svg
+     - assets/icons/filter-list.svg
+     - assets/icons/gallery.svg
+     - assets/icons/home.svg
+     - assets/icons/house.svg
+     - assets/icons/location.svg
+     - assets/icons/menu.svg
+     - assets/icons/messages.svg
+     - assets/icons/money.svg
+     - assets/icons/notifications.svg
+     - assets/icons/profile.svg
+     - assets/icons/schedule.svg
+     - assets/icons/search.svg
+     - assets/icons/star.svg
+     - assets/icons/tree.svg
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/to/resolution-aware-images
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/to/asset-from-package
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
