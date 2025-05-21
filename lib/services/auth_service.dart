@@ -177,4 +177,4 @@ class AuthService {
       throw Exception("Failed to update password: An unexpected error occurred.");
     }
   }
-}
+}git
