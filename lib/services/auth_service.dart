@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:email_validator/email_validator.dart'; // Import for email validation
+import 'package:email_validator/email_validator.dart';
 
-import '../models/user_model.dart'; // Make sure this exists.
+import '../models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -57,31 +57,47 @@ class AuthService {
     return snapshot.snapshot.value != null;
   }
 
-  // Login a user.
-// Login a user and return their user node on success.
+  // Login a user and return their user node on success.
   Future<AppUser?> loginUser(String email, String password) async {
     try {
-      // Authenticate using Firebase Auth
+      print("▶ Login started for email: $email");
+
+      // First check if user exists in database (to avoid auth errors)
+      final userSnapshot = await _dbRef.orderByChild("email").equalTo(email).once();
+
+      if (userSnapshot.snapshot.value == null) {
+        print("❌ No user found with email: $email");
+        return null;
+      }
+
+      // Now try to authenticate
       UserCredential userCred = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Find the user node by email
-      final snapshot = await _dbRef.orderByChild("email").equalTo(email).once();
+      print("✅ Authentication successful for UID: ${userCred.user!.uid}");
 
-      if (snapshot.snapshot.value != null) {
-        final data = Map<String, dynamic>.from(snapshot.snapshot.value as Map);
-        final firstEntry = data.entries.first;
+      // Directly fetch user data using UID
+      final uidSnapshot = await _dbRef.child(userCred.user!.uid).once();
 
-        final Map<String, dynamic> userJson = Map<String, dynamic>.from(firstEntry.value);
-        return AppUser.fromJson(userJson);
-      } else {
-        print("❌ No user node found for email.");
+      if (uidSnapshot.snapshot.value == null) {
+        print("❌ User authenticated but no database record found");
+        return null;
+      }
+
+      try {
+        // Safely convert the data
+        final userData = _convertDbValue(uidSnapshot.snapshot.value);
+        print("✅ User data retrieved successfully: ${userData.keys}");
+        return AppUser.fromJson(userData);
+      } catch (e) {
+        print("❌ Error parsing user data: $e");
+        print("Data received: ${uidSnapshot.snapshot.value.runtimeType}");
         return null;
       }
     } on FirebaseAuthException catch (e) {
-      print("❌ Login error: ${e.message}");
+      print("❌ Login authentication error: ${e.message}");
       return null;
     } catch (e) {
       print("❌ Unexpected error during login: $e");
@@ -89,6 +105,39 @@ class AuthService {
     }
   }
 
+  // Helper method to safely convert database value to Map<String, dynamic>
+  Map<String, dynamic> _convertDbValue(dynamic value) {
+    if (value == null) {
+      throw Exception("Database value is null");
+    }
+
+    // For simple maps
+    if (value is Map) {
+      return Map<String, dynamic>.from(value.map((key, value) {
+        // Ensure keys are strings
+        String keyStr = key.toString();
+        // Recursive conversion for nested maps
+        if (value is Map) {
+          return MapEntry(keyStr, _convertDbValue(value));
+        } else if (value is List) {
+          return MapEntry(keyStr, _convertListValues(value));
+        }
+        return MapEntry(keyStr, value);
+      }));
+    }
+
+    throw Exception("Unexpected data type: ${value.runtimeType}");
+  }
+
+  // Helper method to handle lists
+  List<dynamic> _convertListValues(List<dynamic> list) {
+    return list.map((item) {
+      if (item is Map) {
+        return _convertDbValue(item);
+      }
+      return item;
+    }).toList();
+  }
 
   // Update user email in Firebase Authentication.
   Future<void> updateUserEmail(String newEmail) async {
@@ -123,7 +172,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       print("❌ Failed to update password: ${e.message}");
       throw e; // Re-throw to be handled in UI
-    }  catch (e) {
+    } catch (e) {
       print("❌ Unexpected error updating password: $e");
       throw Exception("Failed to update password: An unexpected error occurred.");
     }
