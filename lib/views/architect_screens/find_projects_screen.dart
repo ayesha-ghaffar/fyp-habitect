@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/screens/svg_icon.dart';
-import 'bid_form.dart';
+import 'package:fyp/views/svg_icon.dart';
+import 'bid_form_screen.dart';
 
 class FindProjects extends StatefulWidget {
   const FindProjects({super.key});

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:fyp/screens/svg_icon.dart';
-import 'edit_portfolio.dart';
+import 'package:fyp/views/svg_icon.dart';
+import 'edit_portfolio_screen.dart';
 import 'package:fyp/models/portfolio_model.dart';
 
 class PortfolioPage extends StatefulWidget {

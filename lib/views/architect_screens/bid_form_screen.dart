@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/screens/svg_icon.dart';
+import 'package:fyp/views/svg_icon.dart';
 import 'package:fyp/services/bid_form_validation.dart';
 
 class SubmitBidForm extends StatefulWidget {

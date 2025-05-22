@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/screens/svg_icon.dart';
+import 'package:fyp/views/svg_icon.dart';
 import 'architect_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {

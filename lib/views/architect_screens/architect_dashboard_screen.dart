@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../svg_icon.dart';
-import 'portfolio.dart';
-import 'find_projects.dart';
+import 'architect_portfolio_screen.dart';
+import 'find_projects_screen.dart';
 import 'architect_panel.dart';
 
 // Main container widget that manages navigation
