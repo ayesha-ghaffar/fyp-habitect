@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart'; // Import to format date
 
-import '../services/auth_service.dart';
+import '../../services/auth_service.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 

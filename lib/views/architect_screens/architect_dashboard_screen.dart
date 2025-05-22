@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'svg_icon.dart';
+import '../svg_icon.dart';
 import 'portfolio.dart';
 import 'find_projects.dart';
 import 'architect_panel.dart';

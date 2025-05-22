@@ -4,8 +4,8 @@ import 'package:email_validator/email_validator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../models/user_model.dart';
-import '../services/auth_service.dart';
+import '../../models/user_model.dart';
+import '../../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
