@@ -455,23 +455,15 @@ class _ClientDashboardState extends State<ClientDashboard> {
         'title': 'Track Projects',
         'description': 'Monitor your ongoing projects',
         'onTap': () {
-          // Navigate to project tracking
+          Navigator.pushNamed(context, '/track-project');
         },
       },
       {
         'icon': Icons.map,
-        'title': 'View 3D Models & Plans',
+        'title': 'View 3D Model',
         'description': 'Review and approve designs',
         'onTap': () {
-          // Navigate to models view
-        },
-      },
-      {
-        'icon': Icons.star,
-        'title': 'AI Recommendations',
-        'description': 'Get architect suggestions',
-        'onTap': () {
-          // Navigate to recommendations
+          Navigator.pushNamed(context, '/view-3d-model');
         },
       },
       {
@@ -479,7 +471,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
         'title': 'Payments & Transactions',
         'description': 'Manage project payments',
         'onTap': () {
-          // Navigate to payments
+          Navigator.pushNamed(context, '/payments');
         },
       },
     ];
