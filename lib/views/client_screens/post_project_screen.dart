@@ -33,6 +33,13 @@ class _PostProjectState extends State<PostProject> {
 
   final ProjectPostingService _projectPostingService = ProjectPostingService();
 
+  // Green theme colors matching the UI with custom dark green
+  static const Color primaryGreen = Color(0xFF7CB342);
+  static const Color lightGreen = Color(0xFF8BC34A);
+  static const Color darkGreen = Color(0xFF6B8E23); // Updated to your specified color
+  static const Color backgroundGreen = Color(0xFFF1F8E9);
+  static const Color accentGreen = Color(0xFFCDDC39);
+
   @override
   void initState() {
     super.initState();
@@ -72,11 +79,11 @@ class _PostProjectState extends State<PostProject> {
             ),
           ],
         ),
-        backgroundColor: Colors.green,
+        backgroundColor: darkGreen, // Using dark green for success messages
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
 
@@ -95,11 +102,11 @@ class _PostProjectState extends State<PostProject> {
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade600,
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -206,35 +213,37 @@ class _PostProjectState extends State<PostProject> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
           onPressed: isSubmitting ? null : goBack,
         ),
         title: const Text(
           'Post Project',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.w600,
-            color: Colors.black,
+            color: Colors.black87,
           ),
         ),
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.grey),
+            icon: Icon(Icons.info_outline, color: darkGreen), // Using dark green for info icon
             onPressed: isSubmitting ? null : () {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Text('Post Project Help'),
                   content: const Text('Fill in the form to find architects for your project. The more details you provide, the better matches you\'ll receive.'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(foregroundColor: darkGreen), // Using dark green for dialog button
                       child: const Text('OK'),
                     ),
                   ],
@@ -247,7 +256,7 @@ class _PostProjectState extends State<PostProject> {
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -266,7 +275,7 @@ class _PostProjectState extends State<PostProject> {
               _buildLayoutPreferencesSection(),
               const SizedBox(height: 24),
               _buildNotesSection(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               _buildSubmitButton(),
               const SizedBox(height: 40),
             ],
@@ -279,27 +288,39 @@ class _PostProjectState extends State<PostProject> {
   Widget _buildInfoCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.secondary.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          colors: [darkGreen, primaryGreen], // Using dark green as starting color
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: darkGreen.withOpacity(0.3), // Using dark green for shadow
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: const [
           Text(
-            'Start Your Dream Project',
+            'Ready to See Your Ideas Take Shape? Begin Here!',
             style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
             ),
           ),
           SizedBox(height: 8),
           Text(
             'Fill in the details below to help architects understand your vision better.',
             style: TextStyle(
-              fontSize: 12,
-              color: Colors.black54,
+              fontSize: 14,
+              color: Colors.white70,
             ),
           ),
         ],
@@ -314,8 +335,9 @@ class _PostProjectState extends State<PostProject> {
         const Text(
           'Project Title',
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
         ),
         const SizedBox(height: 4),
@@ -326,21 +348,29 @@ class _PostProjectState extends State<PostProject> {
             color: Colors.grey.shade600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         TextFormField(
           controller: titleController,
           enabled: !isSubmitting,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: Colors.white,
             hintText: 'Enter project title (optional)',
-            hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
-            prefixIcon: const Icon(Icons.title, color: Colors.grey),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
+            ),
+            prefixIcon: Icon(Icons.title, color: darkGreen), // Using dark green for icon
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
         ),
       ],
@@ -356,8 +386,9 @@ class _PostProjectState extends State<PostProject> {
             const Text(
               'Project Type',
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
             const SizedBox(width: 4),
@@ -365,25 +396,25 @@ class _PostProjectState extends State<PostProject> {
               '(Required)',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w400,
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 2.5,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 2.2,
           children: [
-            _buildProjectTypeItem('New Construction', Icons.home),
-            _buildProjectTypeItem('Renovation/Remodeling', Icons.business),
-            _buildProjectTypeItem('Interior Design', Icons.grid_view),
-            _buildProjectTypeItem('Addition/Expansion', Icons.nature),
+            _buildProjectTypeItem('New Construction', Icons.home_work),
+            _buildProjectTypeItem('Renovation/Remodeling', Icons.build),
+            _buildProjectTypeItem('Interior Design', Icons.design_services),
+            _buildProjectTypeItem('Addition/Expansion', Icons.add_home),
           ],
         ),
       ],
@@ -402,30 +433,37 @@ class _PostProjectState extends State<PostProject> {
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade300,
+            color: isSelected ? darkGreen : Colors.grey.shade300, // Using dark green for selected border
             width: 2,
           ),
-          borderRadius: BorderRadius.circular(8),
-          color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? darkGreen.withOpacity(0.1) : Colors.white, // Using dark green for selected background
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: darkGreen.withOpacity(0.2), // Using dark green for shadow
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ] : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 16,
-              color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
+              size: 18,
+              color: isSelected ? darkGreen : Colors.grey.shade600, // Using dark green for selected icon
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 type,
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.black,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? darkGreen : Colors.black87, // Using dark green for selected text
                 ),
-                textAlign: TextAlign.center,
+                textAlign: TextAlign.left,
               ),
             ),
           ],
@@ -443,8 +481,9 @@ class _PostProjectState extends State<PostProject> {
             const Text(
               'Budget Range',
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
             const SizedBox(width: 4),
@@ -452,28 +491,36 @@ class _PostProjectState extends State<PostProject> {
               '(Required)',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w400,
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         TextFormField(
           controller: budgetController,
           enabled: !isSubmitting,
           keyboardType: TextInputType.text,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: Colors.white,
             hintText: 'e.g., \$50,000 - \$100,000',
-            hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
-            prefixIcon: const Icon(Icons.attach_money, color: Colors.grey),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
+            ),
+            prefixIcon: Icon(Icons.attach_money, color: darkGreen), // Using dark green for icon
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
         ),
       ],
@@ -489,8 +536,9 @@ class _PostProjectState extends State<PostProject> {
             const Text(
               'Timeline',
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
             const SizedBox(width: 4),
@@ -498,13 +546,13 @@ class _PostProjectState extends State<PostProject> {
               '(Start date required)',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w400,
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -541,30 +589,34 @@ class _PostProjectState extends State<PostProject> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         GestureDetector(
           onTap: isSubmitting ? null : onTap,
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade200),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 8),
+                Icon(Icons.calendar_today, size: 18, color: darkGreen), // Using dark green for calendar icon
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     value != null
                         ? DateFormat('MMM dd, yyyy').format(value)
                         : 'Select date',
                     style: TextStyle(
-                      fontSize: 13,
-                      color: value != null ? Colors.black : Colors.grey.shade500,
+                      fontSize: 14,
+                      color: value != null ? Colors.black87 : Colors.grey.shade500,
                     ),
                   ),
                 ),
@@ -582,6 +634,19 @@ class _PostProjectState extends State<PostProject> {
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: darkGreen, // Using dark green for date picker primary color
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
@@ -615,8 +680,9 @@ class _PostProjectState extends State<PostProject> {
             const Text(
               'Project Location',
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
             const SizedBox(width: 4),
@@ -624,27 +690,35 @@ class _PostProjectState extends State<PostProject> {
               '(Required)',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w400,
+                color: Colors.red.shade600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         TextFormField(
           controller: locationController,
           enabled: !isSubmitting,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: Colors.white,
             hintText: 'Enter city, state, or full address',
-            hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
-            prefixIcon: const Icon(Icons.location_on, color: Colors.grey),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
+            ),
+            prefixIcon: Icon(Icons.location_on, color: darkGreen), // Using dark green for location icon
+            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
         ),
       ],
@@ -667,8 +741,9 @@ class _PostProjectState extends State<PostProject> {
         const Text(
           'Layout Preferences',
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
         ),
         const SizedBox(height: 4),
@@ -679,10 +754,10 @@ class _PostProjectState extends State<PostProject> {
             color: Colors.grey.shade600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 10,
+          runSpacing: 10,
           children: preferences.map((preference) {
             final isSelected = selectedLayoutPreferences.contains(preference);
             return GestureDetector(
@@ -696,20 +771,28 @@ class _PostProjectState extends State<PostProject> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(20),
+                  color: isSelected ? darkGreen : Colors.white, // Using dark green for selected preference
+                  borderRadius: BorderRadius.circular(25),
                   border: Border.all(
-                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade300,
+                    color: isSelected ? darkGreen : Colors.grey.shade300, // Using dark green for selected border
+                    width: 2,
                   ),
+                  boxShadow: isSelected ? [
+                    BoxShadow(
+                      color: darkGreen.withOpacity(0.3), // Using dark green for shadow
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ] : null,
                 ),
                 child: Text(
                   preference,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: isSelected ? Theme.of(context).primaryColor : Colors.black,
+                    color: isSelected ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
@@ -727,8 +810,9 @@ class _PostProjectState extends State<PostProject> {
         const Text(
           'Additional Notes',
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
         ),
         const SizedBox(height: 4),
@@ -739,7 +823,7 @@ class _PostProjectState extends State<PostProject> {
             color: Colors.grey.shade600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         TextFormField(
           controller: notesController,
           enabled: !isSubmitting,
@@ -747,15 +831,23 @@ class _PostProjectState extends State<PostProject> {
           maxLength: 500,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey.shade50,
+            fillColor: Colors.white,
             hintText: 'Tell us more about your project...',
-            hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
             ),
             contentPadding: const EdgeInsets.all(16),
-            counterText: '$characterCount/500',
+            counterStyle: TextStyle(color: Colors.grey.shade600),
           ),
         ),
       ],
@@ -763,30 +855,46 @@ class _PostProjectState extends State<PostProject> {
   }
 
   Widget _buildSubmitButton() {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 50,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [darkGreen, primaryGreen], // Using dark green as starting color in gradient
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: darkGreen.withOpacity(0.4), // Using dark green for button shadow
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         onPressed: isSubmitting ? null : submitProject,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).primaryColor,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(28),
           ),
         ),
         child: isSubmitting
             ? const SizedBox(
-          width: 20,
-          height: 20,
+          width: 24,
+          height: 24,
           child: CircularProgressIndicator(
-            strokeWidth: 2,
+            strokeWidth: 2.5,
             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
           ),
         )
             : const Text(
           'Post Project',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),

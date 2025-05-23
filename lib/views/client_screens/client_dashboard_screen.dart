@@ -254,8 +254,8 @@ class _ClientDashboardState extends State<ClientDashboard> {
           ElevatedButton(
             onPressed: () {},
             style: ElevatedButton.styleFrom(
-              backgroundColor: _colorScheme.onPrimary, // Button background color
-              foregroundColor: _colorScheme.primary, // Button text color
+              backgroundColor: _colorScheme.onPrimary,
+              foregroundColor: _colorScheme.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
