@@ -4,15 +4,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../svg_icon.dart';
 import 'package:fyp/models/portfolio_model.dart';
+import 'package:provider/provider.dart';
+import 'package:fyp/services/portfolio_viewmodel.dart';
 
 class EditPortfolioPage extends StatefulWidget {
   final Profile profile;
-  final Function(Profile) onSave;
+  final Function(Profile)? onSave;
 
   const EditPortfolioPage({
     Key? key,
     required this.profile,
-    required this.onSave,
+    this.onSave,
   }) : super(key: key);
 
   @override
@@ -30,10 +32,12 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
   late List<ProjectItem> _projects;
   bool _isToastVisible = false;
   String _toastMessage = "";
+  late PortfolioViewModel _viewModel;
 
   @override
   void initState() {
     super.initState();
+    _viewModel = Provider.of<PortfolioViewModel>(context, listen: false);
     _nameController = TextEditingController(text: widget.profile.name);
     _locationController = TextEditingController(text: widget.profile.location);
     _bioController = TextEditingController(text: widget.profile.bio);
@@ -179,7 +183,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
     });
   }
 
-  void _savePortfolio() {
+  void _savePortfolio() async {
     // Validate form
     if (_nameController.text.isEmpty) {
       _showToast("Please enter your name");
@@ -210,11 +214,23 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
       projects: _projects,
     );
 
-    // Call the onSave callback with the updated profile
-    widget.onSave(updatedProfile);
+    // **FIX: Actually save to Firebase using ViewModel**
+    _showToast("Saving portfolio...");
 
-    // Close the edit page
-    Navigator.of(context).pop();
+    final success = await _viewModel.savePortfolio(updatedProfile);
+
+    if (success) {
+      _showToast("Portfolio saved successfully!");
+
+      // Call the onSave callback if provided
+      widget.onSave?.call(updatedProfile);
+
+      // Close the edit page
+      Navigator.of(context).pop();
+    } else {
+      // Show error message from ViewModel
+      _showToast(_viewModel.errorMessage ?? "Failed to save portfolio");
+    }
   }
 
   Widget _buildCertificationItem(int index) {
@@ -522,16 +538,29 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: _savePortfolio,
-            child: const Text(
-              "Save",
-              style: TextStyle(
-                color: Color(0xFF6B8E23),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+          Consumer<PortfolioViewModel>(
+            builder: (context, viewModel, child) {
+              return viewModel.isSaving
+                  ? const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+                  : TextButton(
+                onPressed: _savePortfolio,
+                child: const Text(
+                  "Save",
+                  style: TextStyle(
+                    color: Color(0xFF6B8E23),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -727,13 +756,14 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
                       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
                     items: [
-                      DropdownMenuItem(value: "residential", child: Text("Residential Architecture")),
-                      DropdownMenuItem(value: "commercial", child: Text("Commercial Architecture")),
+                      DropdownMenuItem(value: "modern", child: Text("Modern Housing")),
+                      DropdownMenuItem(value: "traditional", child: Text("Traditional Design")),
                       DropdownMenuItem(value: "interior", child: Text("Interior Design")),
-                      DropdownMenuItem(value: "landscape", child: Text("Landscape Architecture")),
-                      DropdownMenuItem(value: "urban", child: Text("Urban Planning")),
-                      DropdownMenuItem(value: "industrial", child: Text("Industrial Architecture")),
+                      DropdownMenuItem(value: "renovation", child: Text("Renovation/Remodelling")),
+                      DropdownMenuItem(value: "luxury", child: Text("Luxury Housing")),
+                      DropdownMenuItem(value: "vacation", child: Text("Vacation Housing")),
                       DropdownMenuItem(value: "sustainable", child: Text("Sustainable Design")),
+                      DropdownMenuItem(value: "accessible", child: Text("Accessible/Inclusive Design")),
                     ],
                     onChanged: (value) {
                       setState(() {

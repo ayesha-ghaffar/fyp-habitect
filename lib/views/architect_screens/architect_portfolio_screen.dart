@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:fyp/views/svg_icon.dart';
 import 'edit_portfolio_screen.dart';
 import 'package:fyp/models/portfolio_model.dart';
+import 'package:provider/provider.dart';
+import 'package:fyp/services/portfolio_viewmodel.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class PortfolioPage extends StatefulWidget {
   const PortfolioPage({Key? key}) : super(key: key);
@@ -12,12 +16,13 @@ class PortfolioPage extends StatefulWidget {
 }
 
 class _PortfolioPageState extends State<PortfolioPage> {
+  late PortfolioViewModel _viewModel;
+  String _userName = "";
+
   bool _hasPortfolio = false;
-  final TextEditingController _nameController = TextEditingController(text: "Michael Anderson");
-  final TextEditingController _locationController = TextEditingController(text: "Islamabad, Pakistan");
-  final TextEditingController _bioController = TextEditingController(
-    text: "Award-winning architect with over 10 years of experience specializing in sustainable residential design. My approach combines modern aesthetics with eco-friendly solutions, creating spaces that are both beautiful and environmentally responsible. I believe in close collaboration with clients to transform their vision into functional, inspiring spaces that exceed expectations.",
-  );
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
   String _specialty = "residential";
   File? _profileImage;
   File? _coverImage;
@@ -28,11 +33,64 @@ class _PortfolioPageState extends State<PortfolioPage> {
   List<ProjectItem> _projects = [];
 
   @override
+  void initState() {
+    super.initState();
+    _viewModel = Provider.of<PortfolioViewModel>(context, listen: false);
+    _loadUserData();
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _locationController.dispose();
     _bioController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      // First get user's name from users collection
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userSnapshot = await FirebaseDatabase.instance
+            .ref()
+            .child('users')
+            .child(userId)
+            .get();
+
+        if (userSnapshot.exists) {
+          final userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+          setState(() {
+            _userName = userData['name'] ?? '';
+          });
+        }
+      }
+
+      // Then load portfolio
+      await _viewModel.loadPortfolio();
+
+      // Update UI based on loaded data
+      if (_viewModel.hasProfile && _viewModel.profile != null) {
+        final profile = _viewModel.profile!;
+        setState(() {
+          _nameController.text = profile.name;
+          _locationController.text = profile.location;
+          _bioController.text = profile.bio;
+          _specialty = profile.specialty;
+          _certifications = profile.certifications;
+          _projects = profile.projects;
+          // Note: profileImage and coverImage are not loaded from Firebase yet
+          // You'll need to implement image loading separately
+        });
+      } else {
+        // Set default name for new portfolio
+        setState(() {
+          _nameController.text = _userName;
+        });
+      }
+    } catch (e) {
+      _showToast("Error loading data: $e");
+    }
   }
 
   void _showToast(String message) {
@@ -54,8 +112,8 @@ class _PortfolioPageState extends State<PortfolioPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EditPortfolioPage(
-          profile: Profile(
-            name: _nameController.text,
+          profile: _viewModel.hasProfile ? _viewModel.profile! : Profile(
+            name: _nameController.text.isEmpty ? _userName : _nameController.text,
             location: _locationController.text,
             bio: _bioController.text,
             specialty: _specialty,
@@ -65,17 +123,9 @@ class _PortfolioPageState extends State<PortfolioPage> {
             projects: _projects,
           ),
           onSave: (updatedProfile) {
-            setState(() {
-              _nameController.text = updatedProfile.name;
-              _locationController.text = updatedProfile.location;
-              _bioController.text = updatedProfile.bio;
-              _specialty = updatedProfile.specialty;
-              _profileImage = updatedProfile.profileImage;
-              _coverImage = updatedProfile.coverImage;
-              _certifications = updatedProfile.certifications;
-              _projects = updatedProfile.projects;
-              _hasPortfolio = true;
-            });
+            // The data is already saved to Firebase by EditPortfolioPage
+            // Just reload to refresh the UI
+            _loadUserData();
             _showToast("Portfolio successfully updated");
           },
         ),
@@ -85,20 +135,22 @@ class _PortfolioPageState extends State<PortfolioPage> {
 
   String _getSpecialtyName(String value) {
     switch (value) {
-      case "residential":
-        return "Residential Architecture";
-      case "commercial":
-        return "Commercial Architecture";
+      case "modern":
+        return "Modern Housing";
+      case "traditional":
+        return "Traditional Design";
       case "interior":
         return "Interior Design";
-      case "landscape":
-        return "Landscape Architecture";
-      case "urban":
-        return "Urban Planning";
-      case "industrial":
-        return "Industrial Architecture";
+      case "renovation":
+        return "Renovation/Remodelling";
+      case "luxury":
+        return "Luxury Housing";
+      case "vacation":
+        return "Vacation Housing";
       case "sustainable":
         return "Sustainable Design";
+      case "accessible":
+        return "Accessible/Inclusive Design";
       default:
         return "Residential Architecture";
     }
@@ -107,11 +159,38 @@ class _PortfolioPageState extends State<PortfolioPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: !_hasPortfolio
-          ? _buildEmptyState()
-          : _buildPortfolioView(),
-    );
+      body: Consumer<PortfolioViewModel>(
+        builder: (context, viewModel, child) {
+          if (viewModel.isLoading) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
 
+          if (viewModel.errorMessage != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Error: ${viewModel.errorMessage}',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  ElevatedButton(
+                    onPressed: _loadUserData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return !viewModel.hasProfile
+              ? _buildEmptyState()
+              : _buildPortfolioView();
+        },
+      ),
+    );
   }
 
   Widget _buildEmptyState() {

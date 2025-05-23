@@ -24,6 +24,8 @@ import 'views/client_screens/post_project_screen.dart';
 import 'views/architect_screens/architect_dashboard_screen.dart';
 import 'views/client_screens/chat_list_screen.dart';
 
+
+import 'services/portfolio_viewmodel.dart';
 // No need for _isFirebaseInitialized flag, Firebase.initializeApp is idempotent
 // and subsequent calls are safe.
 
@@ -55,6 +57,9 @@ void main() async {
           create: (_) => CallService(),
           // Ensure Agora engine is disposed when the app is closed
           dispose: (context, callService) => callService.dispose(),
+        ),
+        ChangeNotifierProvider<PortfolioViewModel>(
+          create: (_) => PortfolioViewModel(),
         ),
         // Add more providers for other services if you have them
       ],
