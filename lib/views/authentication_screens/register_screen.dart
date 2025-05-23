@@ -1,11 +1,15 @@
+// lib/views/authentication_screens/register_screen.dart
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // IMPORTANT: This imports most common Flutter widgets and types
 import 'package:email_validator/email_validator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_database/firebase_database.dart'; // For ServerValue.timestamp
 
-import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
+import 'package:fyp/models/user_model.dart'; // UPDATED IMPORT
+import 'package:fyp/services/auth_service.dart';
+import 'package:fyp/services/user_service.dart'; // ADDED THIS IMPORT
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -14,9 +18,11 @@ class RegisterScreen extends StatefulWidget {
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 
+// FIX: Added the class name '_RegisterScreenState'
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
+  late UserService _userService; // Declare UserService
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -27,11 +33,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _dobController = TextEditingController();
 
   String _userType = 'client';
+  String _selectedGender = 'male'; // Default gender selection
   bool _passwordVisible = false;
   bool _isLoading = false;
   String? _errorMessage;
   DateTime? _selectedDate;
-  File? _profileImage;
+  File? _profileImage; // Local file path for the picked image
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize UserService here, after context is available
+    _userService = Provider.of<UserService>(context, listen: false);
+  }
 
   bool validatePassword(String password) {
     final regex = RegExp(r'^(?=.*[A-Z])(?=.*\d).{6,}$');
@@ -68,11 +82,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (value == null || value.isEmpty) {
       return 'Phone number is required';
     }
-    if (!value.startsWith('+92') ||
-        !RegExp(r'^\+923\d{9}$').hasMatch(value)) {
+    // Added a check for +92 at the beginning and proper length for Pakistani numbers
+    if (!value.startsWith('+92') || !RegExp(r'^\+923\d{9}$').hasMatch(value)) {
       return 'Enter a valid Pakistani phone number (e.g., +923xxxxxxxxx)';
     }
     return null;
+  }
+
+
+  // Convert string to Gender enum
+  Gender getGenderEnum(String genderString) {
+    switch (genderString) {
+      case 'male':
+        return Gender.male;
+      case 'female':
+        return Gender.female;
+      default:
+        return Gender.other;
+    }
   }
 
   Future<void> pickImage() async {
@@ -102,50 +129,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void register() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please select your date of birth")),
-        );
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select your date of birth")),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    String fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
+
+    // Convert string _userType to UserType enum
+    UserType selectedUserType = _userType == 'client' ? UserType.client : UserType.architect;
+
+    UserModel newUser = UserModel(
+      uid: '', // Will be updated after Firebase Auth registration
+      name: fullName,
+      username: _usernameController.text.trim(),
+      email: _emailController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
+      dateOfBirth: _selectedDate!,
+      gender: getGenderEnum(_selectedGender),
+      avatarUrl: '', // Not storing to Firebase Storage for now
+      notifications: NotificationPreferences(email: true, push: true, sms: false, marketing: false),
+      userType: selectedUserType, // Use the enum
+      createdAt: ServerValue.timestamp, // Set timestamp on creation
+      updatedAt: ServerValue.timestamp, // Set timestamp on creation
+      lastActive: ServerValue.timestamp, // Set timestamp on creation
+      isOnline: false, // Default to false, will be set true on login
+    );
+
+    try {
+      // 1. Register with Firebase Authentication
+      String? authError = await _authService.registerUser(newUser, _passwordController.text.trim());
+
+      if (authError != null) {
+        setState(() {
+          _errorMessage = authError;
+          _isLoading = false;
+        });
         return;
       }
 
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
+      // Get the UID from the newly registered user
+      String? uid = _authService.currentUser?.uid;
+      if (uid == null) {
+        throw Exception("Registration failed: User UID not found after authentication.");
+      }
 
-      String fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
-
-      AppUser user = AppUser(
-        uid: '',
-        name: fullName,
-        username: _usernameController.text.trim(),
-        email: _emailController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-        dateOfBirth: _selectedDate!,
-        gender: Gender.other,
-        avatarUrl: '',
-        notifications: NotificationPreferences(email: true, push: true, sms: false, marketing: false),
-        role: _userType,
+      // 2. Create/Update User Profile in Realtime Database using UserService
+      // Only update the UID, avatarUrl remains empty string for now.
+      UserModel finalUser = newUser.copyWith(
+        uid: uid,
       );
 
-      String? result = await _authService.registerUser(user, _passwordController.text.trim());
+      await _userService.createUserProfile(finalUser); // This will save the user data including empty avatarUrl
 
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Registration successful! Please log in.")),
+      );
+      Navigator.pushReplacementNamed(context, '/login');
+    } catch (e) {
       setState(() {
+        _errorMessage = e.toString().contains("network")
+            ? "Network error. Please check your internet connection."
+            : "Registration failed: $e";
         _isLoading = false;
       });
-
-      if (result == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Registration successful!")),
-        );
-        Navigator.pushReplacementNamed(context, '/login');
-      } else {
-        setState(() {
-          _errorMessage = result;
-        });
-      }
+      print("Registration error: $e"); // Log the full error
     }
   }
 
@@ -191,7 +248,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Profile Image Picker - styled like the provided image
+                // Profile Image Picker
                 Center(
                   child: GestureDetector(
                     onTap: pickImage,
@@ -296,6 +353,91 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onChanged: (value) {
                             setState(() {
                               _userType = value!;
+                            });
+                          },
+                          activeColor: Theme.of(context).colorScheme.primary,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                          dense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Gender Selection Title
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Gender',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Gender Selection Boxes
+                Row(
+                  children: [
+                    // Male Box
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _selectedGender == 'male'
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: RadioListTile<String>(
+                          title: const Text(
+                            'Male',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          value: 'male',
+                          groupValue: _selectedGender,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedGender = value!;
+                            });
+                          },
+                          activeColor: Theme.of(context).colorScheme.primary,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                          dense: true,
+                        ),
+                      ),
+                    ),
+
+                    // Female Box
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _selectedGender == 'female'
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey.shade200,
+                            width: 1,
+                          ),
+                        ),
+                        child: RadioListTile<String>(
+                          title: const Text(
+                            'Female',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          value: 'female',
+                          groupValue: _selectedGender,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedGender = value!;
                             });
                           },
                           activeColor: Theme.of(context).colorScheme.primary,
@@ -542,7 +684,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),

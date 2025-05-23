@@ -67,14 +67,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // 1. Load from Realtime Database
       final snapshot = await databaseRef.child('users/${user!.uid}').get();
       if (snapshot.exists) {
-        final data = snapshot.value as Map;
+        // Fix: Properly handle the data type from Firebase
+        final data = Map<String, dynamic>.from(snapshot.value as Map<dynamic, dynamic>);
         setState(() {
-          name = data['name'] ?? '';
-          username = data['username'] ?? '';
-          phone = data['phone'] ?? '';
-          dateOfBirth = data['dateOfBirth'];
-          gender = data['gender'] ?? 'Male';
-          final notifications = data['notifications'] ?? {};
+          name = data['name']?.toString() ?? '';
+          username = data['username']?.toString() ?? '';
+          phone = data['phone']?.toString() ?? '';
+          dateOfBirth = data['dateOfBirth']?.toString();
+          gender = data['gender']?.toString() ?? 'Male';
+
+          // Handle notifications data properly
+          final notifications = data['notifications'] != null
+              ? Map<String, dynamic>.from(data['notifications'] as Map<dynamic, dynamic>)
+              : <String, dynamic>{};
           emailNotify = notifications['email'] ?? true;
           pushNotify = notifications['push'] ?? true;
           smsNotify = notifications['sms'] ?? false;
@@ -86,12 +91,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           name = user!.displayName ?? '';
         });
       }
-      // 2.  Load email from Firebase Auth.  This OVERRIDES anything from the database.
+      // 2. Load email from Firebase Auth. This OVERRIDES anything from the database.
       email = user!.email ?? '';
 
     } catch (e) {
       print('Error loading profile: $e');
-      errorMessage = 'Failed to load profile: $e'; // Set error message
+      setState(() {
+        errorMessage = 'Failed to load profile: $e'; // Set error message
+      });
     } finally {
       setState(() => isLoading = false);
     }
@@ -188,38 +195,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       // Re-authenticate user before changing password.
-      await _reAuthenticateUser().then((success) async{
-        if(success){
-          await _authService.changeUserPassword(_newPasswordController.text);
-        }
-        else{
-          setState(() {
-            isLoading = false;
-            loadingText = '';
-            errorMessage =
-            'Password change failed: Please enter the correct password.';
-          });
-          return;
-        }
-      }).catchError((error){
+      bool success = await _reAuthenticateUser();
+      if(success){
+        await _authService.changeUserPassword(_newPasswordController.text);
+        _currentPasswordController.clear();
+        _newPasswordController.clear();
+        _confirmNewPasswordController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated successfully!')),
+        );
+      } else {
         setState(() {
-          isLoading = false;
-          loadingText = '';
-          errorMessage = 'Password change failed: $error';
+          errorMessage = 'Password change failed: Please enter the correct password.';
         });
         return;
-      });
+      }
 
-
-      _newPasswordController.clear();
-      _confirmNewPasswordController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated successfully!')),
-      );
     } catch (e) {
       setState(() {
-        isLoading = false;
-        loadingText = '';
         errorMessage = 'Failed to update password: $e';
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -267,13 +260,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Format date string from yyyy-mm-dd to readable format
+  // Fixed format date function to handle both string and timestamp
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return '';
     try {
-      final date = DateTime.parse(dateString);
+      DateTime date;
+      // Check if it's a timestamp (all digits)
+      if (RegExp(r'^\d+$').hasMatch(dateString)) {
+        // It's a timestamp in milliseconds
+        date = DateTime.fromMillisecondsSinceEpoch(int.parse(dateString));
+      } else {
+        // It's a date string
+        date = DateTime.parse(dateString);
+      }
       return DateFormat('MMM dd, yyyy').format(date);
     } catch (e) {
+      print('Error parsing date: $e');
       return dateString; // Return original if parsing fails
     }
   }
@@ -424,6 +426,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<bool> _reAuthenticateUser() async {
     final formKey = GlobalKey<FormState>(); // Use a local form
     String? password;
+    bool result = false;
 
     await showDialog(
       context: context,
@@ -445,7 +448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
           TextButton(
@@ -457,25 +460,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     password: password!,
                   );
                   await user!.reauthenticateWithCredential(credential);
-                  Navigator.of(context).pop(true); // Return true on success
+                  result = true;
+                  Navigator.of(context).pop(); // Return true on success
                 } on FirebaseAuthException catch (e) {
                   print("Re-authentication error: ${e.message}");
-                  Navigator.of(context).pop(false);
                   // Show error message
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Re-authentication failed: ${e.message}')),
                   );
-
+                  Navigator.of(context).pop();
                 }
               }
-
             },
             child: const Text('Confirm'),
           ),
         ],
       ),
     );
-    return false;
+    return result;
   }
 
   @override
@@ -594,11 +596,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 8),
                           GestureDetector(
                             onTap: isEditingPersonalInfo ? () async {
+                              DateTime initialDate = DateTime(2000, 1, 1);
+
+                              // Handle initial date parsing
+                              if (dateOfBirth != null && dateOfBirth!.isNotEmpty) {
+                                try {
+                                  if (RegExp(r'^\d+$').hasMatch(dateOfBirth!)) {
+                                    // It's a timestamp
+                                    initialDate = DateTime.fromMillisecondsSinceEpoch(int.parse(dateOfBirth!));
+                                  } else {
+                                    // It's a date string
+                                    initialDate = DateTime.parse(dateOfBirth!);
+                                  }
+                                } catch (e) {
+                                  print('Error parsing initial date: $e');
+                                }
+                              }
+
                               final DateTime? picked = await showDatePicker(
                                 context: context,
-                                initialDate: dateOfBirth != null && dateOfBirth!.isNotEmpty
-                                    ? DateTime.parse(dateOfBirth!)
-                                    : DateTime(2000, 1, 1),
+                                initialDate: initialDate,
                                 firstDate: DateTime(1920),
                                 lastDate: DateTime.now(),
                                 builder: (context, child) {
@@ -776,7 +793,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       emailNotify,
                           (val) => setState(() {
                         emailNotify = val;
-                        _saveNotificationSettings();
                       }),
                     ),
                     _buildToggle(
@@ -785,7 +801,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       pushNotify,
                           (val) => setState(() {
                         pushNotify = val;
-                        _saveNotificationSettings();
                       }),
                     ),
                     _buildToggle(
@@ -794,7 +809,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       smsNotify,
                           (val) => setState(() {
                         smsNotify = val;
-                        _saveNotificationSettings();
                       }),
                     ),
                     _buildToggle(
@@ -803,7 +817,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       marketingNotify,
                           (val) => setState(() {
                         marketingNotify = val;
-                        _saveNotificationSettings();
                       }),
                     ),
                     const SizedBox(height: 32),

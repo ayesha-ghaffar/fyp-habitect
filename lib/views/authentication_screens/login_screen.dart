@@ -1,7 +1,10 @@
+// lib/views/authentication_screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
-import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
+import 'package:provider/provider.dart'; // <<< ADD THIS IMPORT
+import 'package:fyp/models/user_model.dart'; // <<< UPDATED IMPORT
+import 'package:fyp/services/auth_service.dart';
+import 'package:fyp/services/user_service.dart'; // <<< ADD THIS IMPORT
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,7 +30,8 @@ class _LoginScreenState extends State<LoginScreen> {
       errorMessage = null;
     });
 
-    AppUser? user = await _authService.loginUser(
+    // Use the AuthService to log in
+    UserModel? user = await _authService.loginUser(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
@@ -37,18 +41,31 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (user != null) {
-      if (user.role.toLowerCase() == 'client') {
+      // Access UserService via Provider
+      final userService = Provider.of<UserService>(context, listen: false);
+
+      // Update user's online status immediately upon successful login
+      // (This is also handled by the authStateChanges listener in main.dart,
+      // but explicitly setting it here can ensure immediate reflection).
+      await userService.updateOnlineStatus(true);
+      print('User ${user.uid} logged in and online status set.');
+
+
+      // Navigate based on user type (now using UserType enum)
+      if (user.userType == UserType.client) { // Use enum comparison
         Navigator.pushReplacementNamed(context, '/client-dashboard');
-      } else if (user.role.toLowerCase() == 'architect') {
+      } else if (user.userType == UserType.architect) { // Use enum comparison
         Navigator.pushReplacementNamed(context, '/architect-dashboard');
       } else {
         setState(() {
-          errorMessage = "Unsupported role: ${user.role}";
+          errorMessage = "Unsupported user role: ${user.userType.name}";
+          // Optionally sign out the unsupported user
+          _authService.signOut();
         });
       }
     } else {
       setState(() {
-        errorMessage = "Invalid login credentials.";
+        errorMessage = "Invalid login credentials. Please check your email and password.";
       });
     }
   }

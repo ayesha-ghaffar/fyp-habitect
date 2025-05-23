@@ -20,15 +20,17 @@ dependencies:
   remixicon: ^1.4.1
   intl: ^0.20.2
   flutter_svg: ^2.1.0
-
+  firebase_messaging: ^15.2.6
+  agora_rtc_engine: ^6.5.2
+  permission_handler: ^12.0.0+1
+  cached_network_image: ^3.4.1
 
   cupertino_icons: ^1.0.8
+  provider: ^6.1.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-
   flutter_lints: ^5.0.0
 
 

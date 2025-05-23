@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 
-
 class ClientDashboard extends StatefulWidget {
   const ClientDashboard({Key? key}) : super(key: key);
 
@@ -15,6 +14,18 @@ class _ClientDashboardState extends State<ClientDashboard> {
   String? username;
   bool isLoading = true;
   int _selectedIndex = 0;
+
+  // Define the color scheme
+  final ColorScheme _colorScheme = ColorScheme.light(
+    primary: const Color(0xFF6B8E23),
+    secondary: const Color(0xFFE2725B),
+    secondaryFixed: const Color(0xFFBDC6C2),
+    tertiary: const Color(0xFFDCB287),
+    tertiaryFixed: const Color(0xFF9E897B),
+    tertiaryFixedDim: const Color(0xFFB5855B),
+    surface: Colors.white,
+    background: const Color(0xFFF9F9F7),
+  );
 
   @override
   void initState() {
@@ -71,70 +82,59 @@ class _ClientDashboardState extends State<ClientDashboard> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: _colorScheme.background,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
+      backgroundColor: _colorScheme.background,
+      appBar: _buildAppBar(),
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildWelcomeCard(),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle('Quick Actions'),
-                    _buildQuickActions(),
-                    _buildSectionTitle('Project Management'),
-                    _buildMenuCards(),
-                    _buildSectionTitle('Account & Profile'),
-                    _buildAccountMenuCards(),
-                    _buildProjectsSection(),
-                    _buildArchitectsSection(),
-                    const SizedBox(height: 80), // Space for bottom nav
-                  ],
-                ),
-              ),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildWelcomeCard(),
+              _buildSectionTitle('Quick Actions'),
+              _buildQuickActions(),
+              _buildSectionTitle('Project Management'),
+              _buildMenuCards(),
+              _buildSectionTitle('Account & Profile'),
+              _buildAccountMenuCards(),
+              _buildProjectsSection(),
+              _buildArchitectsSection(),
+              const SizedBox(height: 80), // Space for bottom nav
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          GestureDetector(
-            onTap: navigateToProfile,
-            child: Row(
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: _colorScheme.surface,
+      elevation: 0,
+      titleSpacing: 0,
+      title: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFEAEAEA)),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: _colorScheme.secondaryFixed,
+                  child: ClipOval(
                     child: Image.network(
                       'https://via.placeholder.com/40',
                       fit: BoxFit.cover,
+                      width: 40,
+                      height: 40,
                     ),
                   ),
                 ),
@@ -144,56 +144,82 @@ class _ClientDashboardState extends State<ClientDashboard> {
                   children: [
                     Text(
                       username ?? 'Client',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF333333),
+                        fontWeight: FontWeight.bold,
+                        color: _colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      'Client Account',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                   ],
                 ),
               ],
             ),
-          ),
-          Row(
-            children: [
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications, color: Color(0xFF333333)),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF4D4F),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
+            Row(
+              children: [
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.notifications_none, color: _colorScheme.onSurface),
+                      onPressed: () {
+                        // Handle notifications
+                      },
+                    ),
+                    Positioned(
+                      top: 5,
+                      right: 5,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: _colorScheme.secondary, // Notification badge color
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
                         child: Text(
-                          '3',
+                          '3', // Example notification count
                           style: TextStyle(
-                            color: Colors.white,
+                            color: _colorScheme.onSecondary,
                             fontSize: 10,
-                            fontWeight: FontWeight.bold,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: const Icon(Icons.logout, color: Color(0xFF333333)),
-                onPressed: confirmLogout,
-              ),
-            ],
-          ),
-        ],
+                  ],
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'profile_settings') {
+                      navigateToProfile();
+                    } else if (value == 'logout') {
+                      confirmLogout();
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    PopupMenuItem<String>(
+                      value: 'profile_settings',
+                      child: Text('Profile Settings', style: TextStyle(color: _colorScheme.onSurface)),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'logout',
+                      child: Text('Logout', style: TextStyle(color: _colorScheme.onSurface)),
+                    ),
+                  ],
+                  icon: Icon(Icons.menu, color: _colorScheme.onSurface),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -203,11 +229,11 @@ class _ClientDashboardState extends State<ClientDashboard> {
       margin: const EdgeInsets.all(15),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFbad012),
+        color: _colorScheme.primary, // Using primary color
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: _colorScheme.onSurface.withOpacity(0.1),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -215,21 +241,21 @@ class _ClientDashboardState extends State<ClientDashboard> {
       ),
       child: Column(
         children: [
-          const Text(
+          Text(
             'Ready to See Your Ideas Take Shape? Begin Here!',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: _colorScheme.onPrimary, // Text color on primary background
             ),
           ),
           const SizedBox(height: 15),
           ElevatedButton(
             onPressed: () {},
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFFbad012),
+              backgroundColor: _colorScheme.onPrimary, // Button background color
+              foregroundColor: _colorScheme.primary, // Button text color
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -253,20 +279,20 @@ class _ClientDashboardState extends State<ClientDashboard> {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF333333),
+              color: _colorScheme.onSurface,
             ),
           ),
           if (showViewAll)
             GestureDetector(
               onTap: () {},
-              child: const Text(
+              child: Text(
                 'View All',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFFbad012),
+                  color: _colorScheme.primary, // Using primary color
                 ),
               ),
             ),
@@ -302,10 +328,10 @@ class _ClientDashboardState extends State<ClientDashboard> {
           ),
           _buildActionCard(
             icon: Icons.chat_bubble_outline,
-            title: 'Messages',
-            badge: '5',
+            title: 'Chats',
+
             onTap: () {
-              // Navigate to messages
+              Navigator.pushNamed(context, '/chatListScreen');
             },
           ),
           _buildActionCard(
@@ -332,11 +358,11 @@ class _ClientDashboardState extends State<ClientDashboard> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: _colorScheme.onSurface.withOpacity(0.05),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -352,20 +378,20 @@ class _ClientDashboardState extends State<ClientDashboard> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFbad012).withOpacity(0.1),
+                      color: _colorScheme.primary.withOpacity(0.1), // Using primary color
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       icon,
-                      color: const Color(0xFFbad012),
+                      color: _colorScheme.primary, // Using primary color
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: Color(0xFF333333),
+                      color: _colorScheme.onSurface,
                     ),
                   ),
                   if (progress != null)
@@ -375,7 +401,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
                         width: 100,
                         height: 3,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0F0F0),
+                          color: _colorScheme.onSurface.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(1.5),
                         ),
                         child: FractionallySizedBox(
@@ -383,7 +409,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
                           widthFactor: progress,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFFbad012),
+                              color: _colorScheme.primary, // Using primary color
                               borderRadius: BorderRadius.circular(1.5),
                             ),
                           ),
@@ -400,15 +426,15 @@ class _ClientDashboardState extends State<ClientDashboard> {
                 child: Container(
                   width: 18,
                   height: 18,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFF4D4F),
+                  decoration: BoxDecoration(
+                    color: _colorScheme.secondary, // Badge color
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       badge,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _colorScheme.onSecondary,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
@@ -529,11 +555,11 @@ class _ClientDashboardState extends State<ClientDashboard> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: _colorScheme.onSurface.withOpacity(0.05),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -545,33 +571,33 @@ class _ClientDashboardState extends State<ClientDashboard> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFbad012).withOpacity(0.1),
+              color: _colorScheme.primary.withOpacity(0.1), // Using primary color
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: const Color(0xFFbad012),
+              color: _colorScheme.primary, // Using primary color
             ),
           ),
           title: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF333333),
+              color: _colorScheme.onSurface,
             ),
           ),
           subtitle: Text(
             description,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF999999),
+              color: _colorScheme.onSurface.withOpacity(0.6),
             ),
           ),
-          trailing: const Icon(
+          trailing: Icon(
             Icons.arrow_forward_ios,
             size: 14,
-            color: Color(0xFF999999),
+            color: _colorScheme.onSurface.withOpacity(0.6),
           ),
         ),
       ),
@@ -615,11 +641,11 @@ class _ClientDashboardState extends State<ClientDashboard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: _colorScheme.onSurface.withOpacity(0.05),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -644,10 +670,10 @@ class _ClientDashboardState extends State<ClientDashboard> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF333333),
+                    color: _colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -656,16 +682,16 @@ class _ClientDashboardState extends State<ClientDashboard> {
                   children: [
                     Text(
                       architect,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF666666),
+                        color: _colorScheme.onSurface.withOpacity(0.7),
                       ),
                     ),
                     Text(
                       'In Progress - ${(progress * 100).toInt()}%',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFFbad012),
+                        color: _colorScheme.primary, // Using primary color
                       ),
                     ),
                   ],
@@ -674,7 +700,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
                 Container(
                   height: 3,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F0F0),
+                    color: _colorScheme.onSurface.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(1.5),
                   ),
                   child: FractionallySizedBox(
@@ -682,7 +708,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
                     widthFactor: progress,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFbad012),
+                        color: _colorScheme.primary, // Using primary color
                         borderRadius: BorderRadius.circular(1.5),
                       ),
                     ),
@@ -749,11 +775,11 @@ class _ClientDashboardState extends State<ClientDashboard> {
       margin: const EdgeInsets.only(right: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: _colorScheme.onSurface.withOpacity(0.05),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -770,10 +796,10 @@ class _ClientDashboardState extends State<ClientDashboard> {
           Text(
             name,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF333333),
+              color: _colorScheme.onSurface,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -782,9 +808,9 @@ class _ClientDashboardState extends State<ClientDashboard> {
           Text(
             specialty,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF666666),
+              color: _colorScheme.onSurface.withOpacity(0.7),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -795,15 +821,15 @@ class _ClientDashboardState extends State<ClientDashboard> {
             children: [
               const Icon(
                 Icons.star,
-                color: Color(0xFFFFD700),
+                color: Color(0xFFFFD700), // Gold color for stars
                 size: 14,
               ),
               const SizedBox(width: 2),
               Text(
                 rating,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF333333),
+                  color: _colorScheme.onSurface,
                 ),
               ),
             ],
@@ -816,10 +842,10 @@ class _ClientDashboardState extends State<ClientDashboard> {
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: _colorScheme.onSurface.withOpacity(0.05),
             blurRadius: 4,
             offset: const Offset(0, -1),
           ),
@@ -833,18 +859,20 @@ class _ClientDashboardState extends State<ClientDashboard> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFFbad012),
-        unselectedItemColor: const Color(0xFF999999),
+        backgroundColor: _colorScheme.surface,
+        selectedItemColor: _colorScheme.primary, // Using primary color
+        unselectedItemColor: _colorScheme.onSurface.withOpacity(0.6),
         showUnselectedLabels: true,
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home),
             label: 'Home',
+            backgroundColor: _colorScheme.surface,
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.flag),
             label: 'Projects',
+            backgroundColor: _colorScheme.surface,
           ),
           BottomNavigationBarItem(
             icon: Stack(
@@ -855,32 +883,33 @@ class _ClientDashboardState extends State<ClientDashboard> {
                   right: 0,
                   child: Container(
                     padding: const EdgeInsets.all(1),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFF4D4F),
+                    decoration: BoxDecoration(
+                      color: _colorScheme.secondary, // Badge color
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(
                       minWidth: 12,
                       minHeight: 12,
                     ),
-                    child: const Center(
-                      child: Text(
-                        '5',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
+                    child: Text(
+                      '5',
+                      style: TextStyle(
+                        color: _colorScheme.onSecondary,
+                        fontSize: 8,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
               ],
             ),
             label: 'Messages',
+            backgroundColor: _colorScheme.surface,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person),
             label: 'Profile',
+            backgroundColor: _colorScheme.surface,
           ),
         ],
       ),
