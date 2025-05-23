@@ -336,10 +336,10 @@ class _ClientDashboardState extends State<ClientDashboard> {
           ),
           _buildActionCard(
             icon: Icons.flag,
-            title: 'Active Projects',
+            title: 'Uploaded Project',
             progress: 0.65,
             onTap: () {
-              // Navigate to projects
+              Navigator.pushNamed(context, '/uploaded-projects');
             },
           ),
         ],

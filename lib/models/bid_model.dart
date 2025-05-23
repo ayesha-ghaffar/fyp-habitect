@@ -1,3 +1,4 @@
+// lib/models/bid_model.dart
 import 'package:flutter/material.dart';
 
 enum BidStatus {
@@ -7,10 +8,9 @@ enum BidStatus {
 }
 
 class Bid {
-  final String id;
-  final String projectTitle;
-  final String projectCategory;
-  final String projectBudget;
+  final String id; // This is the ID of the bid document itself
+  final String projectId; // <--- This MUST be present for ProjectPostingService to work
+  final String architectId; // <--- This MUST be present for ProjectPostingService to work
   final String summary;
   final String approach;
   final String proposedSolution;
@@ -25,9 +25,8 @@ class Bid {
 
   Bid({
     required this.id,
-    required this.projectTitle,
-    required this.projectCategory,
-    required this.projectBudget,
+    required this.projectId, // <--- Required in constructor
+    required this.architectId, // <--- Required in constructor
     required this.summary,
     required this.approach,
     required this.proposedSolution,
@@ -41,13 +40,11 @@ class Bid {
     this.status = BidStatus.pending,
   });
 
-  // Convert Bid to a Map for storage
+  // Convert Bid to a Map for storage (excluding 'id' as it's the document key)
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'projectTitle': projectTitle,
-      'projectCategory': projectCategory,
-      'projectBudget': projectBudget,
+      'projectId': projectId, // <--- Include projectId in map
+      'architectId': architectId, // <--- Include architectId in map
       'summary': summary,
       'approach': approach,
       'proposedSolution': proposedSolution,
@@ -62,24 +59,23 @@ class Bid {
     };
   }
 
-  // Create a Bid from a Map
-  factory Bid.fromMap(Map<String, dynamic> map) {
+  // Create a Bid from a Map, accepting the ID separately
+  factory Bid.fromMap(Map<String, dynamic> map, String id) {
     return Bid(
-      id: map['id'],
-      projectTitle: map['projectTitle'],
-      projectCategory: map['projectCategory'],
-      projectBudget: map['projectBudget'],
-      summary: map['summary'],
-      approach: map['approach'],
-      proposedSolution: map['proposedSolution'],
-      timeline: map['timeline'],
-      cost: map['cost'],
+      id: id,
+      projectId: map['projectId'] ?? '', // <--- Parse projectId from map
+      architectId: map['architectId'] ?? '', // <--- Parse architectId from map
+      summary: map['summary'] ?? '',
+      approach: map['approach'] ?? '',
+      proposedSolution: map['proposedSolution'] ?? '',
+      timeline: map['timeline'] ?? '',
+      cost: (map['cost'] ?? 0.0).toDouble(),
       phone: map['phone'],
       email: map['email'],
       website: map['website'],
       additionalComments: map['additionalComments'],
-      submissionDate: DateTime.fromMillisecondsSinceEpoch(map['submissionDate']),
-      status: BidStatus.values[map['status']],
+      submissionDate: DateTime.fromMillisecondsSinceEpoch(map['submissionDate'] ?? 0),
+      status: BidStatus.values[map['status'] ?? BidStatus.pending.index],
     );
   }
 
@@ -105,5 +101,40 @@ class Bid {
       case BidStatus.rejected:
         return 'Rejected';
     }
+  }
+
+  // Add copyWith for Bid (important for immutability and updates)
+  Bid copyWith({
+    String? id,
+    String? projectId, // <--- Add projectId to copyWith
+    String? architectId, // <--- Add architectId to copyWith
+    String? summary,
+    String? approach,
+    String? proposedSolution,
+    String? timeline,
+    double? cost,
+    String? phone,
+    String? email,
+    String? website,
+    String? additionalComments,
+    DateTime? submissionDate,
+    BidStatus? status,
+  }) {
+    return Bid(
+      id: id ?? this.id,
+      projectId: projectId ?? this.projectId, // <--- Assign projectId
+      architectId: architectId ?? this.architectId, // <--- Assign architectId
+      summary: summary ?? this.summary,
+      approach: approach ?? this.approach,
+      proposedSolution: proposedSolution ?? this.proposedSolution,
+      timeline: timeline ?? this.timeline,
+      cost: cost ?? this.cost,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      website: website ?? this.website,
+      additionalComments: additionalComments ?? this.additionalComments,
+      submissionDate: submissionDate ?? this.submissionDate,
+      status: status ?? this.status,
+    );
   }
 }

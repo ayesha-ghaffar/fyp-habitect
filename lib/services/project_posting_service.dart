@@ -1,6 +1,7 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fyp/models/project_model.dart';
 import 'package:fyp/models/user_model.dart'; // Your existing user model
+import 'package:fyp/models/bid_model.dart';
 
 class ProjectPostingService {
   static final ProjectPostingService _instance = ProjectPostingService._internal();

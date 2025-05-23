@@ -1,3 +1,7 @@
+// lib/models/project_model.dart
+// import 'package:flutter/foundation.dart'; // No longer strictly needed unless you use @required
+import 'package:fyp/models/bid_model.dart'; // Import the Bid model
+
 class Project {
   final String? id;
   final String clientId;
@@ -43,12 +47,25 @@ class Project {
       'notes': notes,
       'status': status,
       'createdAt': createdAt.toIso8601String(),
+      // Iterate through bids to convert each Bid object to its map representation
       'bids': bids?.map((key, value) => MapEntry(key, value.toMap())) ?? {},
     };
   }
 
   // Create Project from Map (Firebase data)
   factory Project.fromMap(Map<String, dynamic> map, String id) {
+    Map<String, Bid>? parsedBids;
+    if (map['bids'] != null && map['bids'] is Map) {
+      parsedBids = {};
+      // Iterate over the raw bids map to parse each bid
+      (map['bids'] as Map).forEach((key, value) {
+        if (value is Map<String, dynamic>) {
+          // Pass the key (which is the bid ID) and the value (bid data map)
+          parsedBids![key.toString()] = Bid.fromMap(value, key.toString());
+        }
+      });
+    }
+
     return Project(
       id: id,
       clientId: map['clientId'] ?? '',
@@ -62,11 +79,7 @@ class Project {
       notes: map['notes'],
       status: map['status'] ?? 'open',
       createdAt: DateTime.parse(map['createdAt']),
-      bids: map['bids'] != null
-          ? Map<String, Bid>.from(
-          map['bids'].map((key, value) => MapEntry(key, Bid.fromMap(value, key)))
-      )
-          : null,
+      bids: parsedBids, // Assign the correctly parsed bids
     );
   }
 
@@ -100,70 +113,6 @@ class Project {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       bids: bids ?? this.bids,
-    );
-  }
-}
-
-class Bid {
-  final String? id;
-  final String projectId;
-  final String architectId;
-  final double cost;
-  final String timeline;
-  final String status;
-  final DateTime createdAt;
-
-  Bid({
-    this.id,
-    required this.projectId,
-    required this.architectId,
-    required this.cost,
-    required this.timeline,
-    this.status = 'pending',
-    required this.createdAt,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'projectId': projectId,
-      'architectId': architectId,
-      'cost': cost,
-      'timeline': timeline,
-      'status': status,
-      'createdAt': createdAt.toIso8601String(),
-    };
-  }
-
-  factory Bid.fromMap(Map<String, dynamic> map, String id) {
-    return Bid(
-      id: id,
-      projectId: map['projectId'] ?? '',
-      architectId: map['architectId'] ?? '',
-      cost: (map['cost'] ?? 0).toDouble(),
-      timeline: map['timeline'] ?? '',
-      status: map['status'] ?? 'pending',
-      createdAt: DateTime.parse(map['createdAt']),
-    );
-  }
-
-  // Added missing copyWith method
-  Bid copyWith({
-    String? id,
-    String? projectId,
-    String? architectId,
-    double? cost,
-    String? timeline,
-    String? status,
-    DateTime? createdAt,
-  }) {
-    return Bid(
-      id: id ?? this.id,
-      projectId: projectId ?? this.projectId,
-      architectId: architectId ?? this.architectId,
-      cost: cost ?? this.cost,
-      timeline: timeline ?? this.timeline,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
     );
   }
 }
