@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class PaymentsScreen extends StatelessWidget {
-  const PaymentsScreen({Key? key}) : super(key: key);
+class TransactionHistoryScreen extends StatelessWidget {
+  const TransactionHistoryScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,7 @@ class PaymentsScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Payments & Transactions',
+                  'Transaction History',
                   style: TextStyle(
                     color: Colors.black87,
                     fontSize: 18,
@@ -43,7 +43,7 @@ class PaymentsScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Manage project payments',
+                  'View past payments',
                   style: TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
@@ -72,7 +72,7 @@ class PaymentsScreen extends StatelessWidget {
             ),
             SizedBox(height: 24),
             Text(
-              'No payment transactions yet',
+              'No record to display yet',
               style: TextStyle(
                 color: Colors.grey,
                 fontSize: 16,
@@ -81,7 +81,7 @@ class PaymentsScreen extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              'Your payments managed here',
+              'Your transaction history will appear here',
               style: TextStyle(
                 color: Colors.grey,
                 fontSize: 14,

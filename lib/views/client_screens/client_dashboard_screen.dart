@@ -502,7 +502,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
         'title': 'Transaction History',
         'description': 'View past payments and receipts',
         'onTap': () {
-          // Navigate to transaction history
+          Navigator.pushNamed(context, '/transaction-history');
         },
       },
       {
@@ -511,14 +511,6 @@ class _ClientDashboardState extends State<ClientDashboard> {
         'description': 'Rate architects and view feedback',
         'onTap': () {
           // Navigate to reviews
-        },
-      },
-      {
-        'icon': Icons.image,
-        'title': 'Portfolio Gallery',
-        'description': 'View your completed projects',
-        'onTap': () {
-          // Navigate to portfolio
         },
       },
     ];

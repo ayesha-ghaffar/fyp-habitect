@@ -7,6 +7,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart'; // Import to format date
 
 import '../../services/auth_service.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -72,7 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           name = data['name']?.toString() ?? '';
           username = data['username']?.toString() ?? '';
-          phone = data['phone']?.toString() ?? '';
+          phone = data['phoneNumber']?.toString() ?? '';
           dateOfBirth = data['dateOfBirth']?.toString();
           gender = data['gender']?.toString() ?? 'Male';
 
