@@ -16,34 +16,35 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
 
   // Register a new user. Now expects UserModel
-  Future<String?> registerUser(UserModel user, String password) async {
+  // Registration method
+  // This method should only handle Firebase Authentication, not database writes.
+  Future<String?> registerUser(UserModel userModel, String password) async {
     try {
-      print("▶ Register started for email: ${user.email}");
-      final emailExists = await checkEmailExists(user.email);
-      final usernameExists = await checkUsernameExists(user.username);
-      print("▶ Email exists: $emailExists, Username exists: $usernameExists");
-
-      if (emailExists) return "Email already in use";
-      if (usernameExists) return "Username already taken";
-
-      UserCredential userCred = await _auth.createUserWithEmailAndPassword(
-        email: user.email,
+      // Create user with email and password in Firebase Authentication
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: userModel.email,
         password: password,
       );
 
-      // Assign UID from Firebase Auth to your UserModel
-      UserModel newUserWithUid = user.copyWith(uid: userCred.user!.uid);
+      // Optionally, you can send email verification here
+      // await userCredential.user!.sendEmailVerification();
 
-      print("▶ Writing to DB at /users/${newUserWithUid.uid}");
-      await _dbRef.child(newUserWithUid.uid).set(newUserWithUid.toMap()); // Use toMap()
-      print("✅ Successfully saved user to DB");
-      return null; // success
+      // Return null on success, indicating no error.
+      // The UID is now available via _auth.currentUser?.uid in RegisterScreen.
+      return null;
     } on FirebaseAuthException catch (e) {
-      print("❌ Register error: ${e.message}");
-      return e.message;
+      if (e.code == 'weak-password') {
+        return 'The password provided is too weak.';
+      } else if (e.code == 'email-already-in-use') {
+        return 'The account already exists for that email.';
+      } else if (e.code == 'invalid-email') {
+        return 'The email address is not valid.';
+      } else {
+        return e.message;
+      }
     } catch (e) {
-      print("❌ Register error: $e");
-      return "An unexpected error occurred.";
+      print("Register error in AuthService: $e"); // Log for debugging
+      return e.toString();
     }
   }
 
