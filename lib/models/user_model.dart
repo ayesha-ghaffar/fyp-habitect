@@ -1,5 +1,3 @@
-// lib/models/user_model.dart
-// import 'package:cloud_firestore/cloud_firestore.dart'; // <<< REMOVED THIS LINE
 import 'package:firebase_database/firebase_database.dart'; // For ServerValue.timestamp
 
 // Define the UserType enum

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:intl/intl.dart'; // Import to format date
+import 'package:intl/intl.dart';
 
 import '../../services/auth_service.dart';
 
@@ -19,7 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
   final databaseRef = FirebaseDatabase.instance.ref();
-  User? get user => _authService.currentUser; // Use getter from AuthService
+  User? get user => _authService.currentUser;
 
   // Profile Info
   String name = '';
@@ -32,11 +32,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isEditingPersonalInfo = false;
 
   // Password Management
-  final TextEditingController _currentPasswordController =
-  TextEditingController();
+  final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmNewPasswordController =
-  TextEditingController();
+  final TextEditingController _confirmNewPasswordController = TextEditingController();
   bool _obscureCurrentPassword = true;
   bool _obscureNewPassword = true;
   bool _obscureConfirmNewPassword = true;
@@ -60,24 +58,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfile();
   }
 
-  // Load user profile data from Firebase Authentication and Realtime Database.
   Future<void> _loadProfile() async {
-    if (user == null) return;
+    print('🔍 DEBUG: Starting _loadProfile');
+    if (user == null) {
+      print('❌ DEBUG: User is null');
+      return;
+    }
+
+    print('✅ DEBUG: User found - UID: ${user!.uid}');
     setState(() => isLoading = true);
+
     try {
-      // 1. Load from Realtime Database
+      print('📡 DEBUG: Fetching data from Firebase...');
       final snapshot = await databaseRef.child('users/${user!.uid}').get();
+
       if (snapshot.exists) {
-        // Fix: Properly handle the data type from Firebase
+        print('✅ DEBUG: Data exists in Firebase');
         final data = Map<String, dynamic>.from(snapshot.value as Map<dynamic, dynamic>);
+        print('📊 DEBUG: Retrieved data: $data');
+
         setState(() {
           name = data['name']?.toString() ?? '';
           username = data['username']?.toString() ?? '';
           phone = data['phoneNumber']?.toString() ?? '';
           dateOfBirth = data['dateOfBirth']?.toString();
-          gender = data['gender']?.toString() ?? 'Male';
 
-          // Handle notifications data properly
+          String genderFromDB = data['gender']?.toString() ?? 'male';
+          gender = _capitalizeGender(genderFromDB);
+
           final notifications = data['notifications'] != null
               ? Map<String, dynamic>.from(data['notifications'] as Map<dynamic, dynamic>)
               : <String, dynamic>{};
@@ -86,26 +94,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
           smsNotify = notifications['sms'] ?? false;
           marketingNotify = notifications['marketing'] ?? false;
         });
+
+        print('✅ DEBUG: State updated with Firebase data');
       } else {
-        print('No data exists for this user in the database');
+        print('⚠️ DEBUG: No data exists for this user in Firebase');
         setState(() {
           name = user!.displayName ?? '';
         });
       }
-      // 2. Load email from Firebase Auth. This OVERRIDES anything from the database.
+
       email = user!.email ?? '';
+      print('📧 DEBUG: Email from Auth: $email');
 
     } catch (e) {
-      print('Error loading profile: $e');
+      print('❌ DEBUG: Error loading profile: $e');
       setState(() {
-        errorMessage = 'Failed to load profile: $e'; // Set error message
+        errorMessage = 'Failed to load profile: $e';
       });
     } finally {
       setState(() => isLoading = false);
     }
   }
 
-  // Function to pick an image from device gallery
+  String _capitalizeGender(String genderFromDB) {
+    switch (genderFromDB.toLowerCase()) {
+      case 'male':
+        return 'Male';
+      case 'female':
+        return 'Female';
+      case 'other':
+        return 'Other';
+      default:
+        return 'Male';
+    }
+  }
+
   Future<void> _pickImage() async {
     if (!isEditingPersonalInfo) return;
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -117,69 +140,141 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Function to save personal information
+  // FIXED: Enhanced _savePersonalInfo with better validation
   Future<void> _savePersonalInfo() async {
-    if (!_formKey.currentState!.validate()) return;
+    print('💾 DEBUG: Starting _savePersonalInfo');
+
+    // Manual validation instead of relying on form validation
+    List<String> errors = [];
+
+    if (name.trim().isEmpty) {
+      errors.add('Full Name is required');
+    }
+    if (username.trim().isEmpty) {
+      errors.add('Username is required');
+    }
+    if (phone.trim().isEmpty) {
+      errors.add('Phone Number is required');
+    }
+
+    // Show specific error messages
+    if (errors.isNotEmpty) {
+      print('❌ DEBUG: Validation failed: ${errors.join(', ')}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errors.first),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Check if user exists
+    if (user == null) {
+      print('❌ DEBUG: User is null during save');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not authenticated')),
+      );
+      return;
+    }
+
+    print('📝 DEBUG: Saving data: name=$name, username=$username, phone=$phone, gender=$gender');
 
     setState(() {
       isLoading = true;
       loadingText = 'Saving Personal Info...';
-      errorMessage = null; // Clear any previous error
+      errorMessage = null;
     });
 
     try {
-
-      // Update other personal information in Realtime Database
-      await _authService.updateUserData(user!.uid, {
-        'name': name,
-        'username': username,
-        'phone': phone,
+      // Prepare data to save
+      final dataToSave = {
+        'name': name.trim(),
+        'username': username.trim(),
+        'phoneNumber': phone.trim(),
         'dateOfBirth': dateOfBirth,
-        'gender': gender,
-      });
+        'gender': gender.toLowerCase(),
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      };
 
-      // Update display name in Firebase Authentication
-      if (user!.displayName != name) {
-        await user!.updateDisplayName(name);
+      print('📤 DEBUG: Data to save: $dataToSave');
+
+      // Save to Firebase Realtime Database
+      await databaseRef.child('users/${user!.uid}').update(dataToSave);
+      print('✅ DEBUG: Data saved to Firebase successfully');
+
+      // Update display name in Firebase Authentication if changed
+      if (user!.displayName != name.trim()) {
+        await user!.updateDisplayName(name.trim());
+        print('✅ DEBUG: Display name updated in Auth');
       }
 
+      // Update UI state
       setState(() {
         isLoading = false;
         formChanged = false;
         isEditingPersonalInfo = false;
+        errorMessage = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Personal Information updated successfully!'),
-      ));
-      _loadProfile(); // Reload the profile to reflect changes.
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Personal Information updated successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+
+      print('✅ DEBUG: Success message shown');
+
+      // Reload profile to confirm changes
+      await _loadProfile();
 
     } catch (e) {
+      print('❌ DEBUG: Error saving personal info: $e');
+
       setState(() {
         isLoading = false;
         loadingText = '';
         errorMessage = 'Failed to update profile: $e';
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Failed to update profile: $e'),
-      ));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update profile: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 
-  // Function to handle password change
+  // FIXED: Enhanced _changePassword with better error handling
   Future<void> _changePassword() async {
-    if (_newPasswordController.text.isEmpty ||
+    print('🔐 DEBUG: Starting _changePassword');
+
+    if (_currentPasswordController.text.isEmpty ||
+        _newPasswordController.text.isEmpty ||
         _confirmNewPasswordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all password fields.')),
       );
       return;
     }
+
     if (_newPasswordController.text != _confirmNewPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('New passwords do not match.')),
       );
       return;
     }
+
     if (_newPasswordController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -195,41 +290,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      // Re-authenticate user before changing password.
+      // Re-authenticate user before changing password
+      print('🔒 DEBUG: Re-authenticating user...');
       bool success = await _reAuthenticateUser();
-      if(success){
-        await _authService.changeUserPassword(_newPasswordController.text);
+
+      if (success) {
+        print('✅ DEBUG: Re-authentication successful, changing password...');
+        await user!.updatePassword(_newPasswordController.text);
+
+        // Clear password fields
         _currentPasswordController.clear();
         _newPasswordController.clear();
         _confirmNewPasswordController.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password updated successfully!')),
-        );
-      } else {
+
         setState(() {
-          errorMessage = 'Password change failed: Please enter the correct password.';
+          isEditingPassword = false;
+          formChanged = false;
         });
-        return;
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Password updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        print('✅ DEBUG: Password changed successfully');
+      } else {
+        print('❌ DEBUG: Re-authentication failed');
+        setState(() {
+          errorMessage = 'Password change failed: Please enter the correct current password.';
+        });
       }
 
     } catch (e) {
+      print('❌ DEBUG: Error changing password: $e');
       setState(() {
         errorMessage = 'Failed to update password: $e';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update password: $e')),
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update password: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() {
         isLoading = false;
         loadingText = '';
-        isEditingPassword = false;
       });
     }
   }
 
-  // Function to save notification settings
+  // FIXED: Enhanced _saveNotificationSettings
   Future<void> _saveNotificationSettings() async {
+    print('🔔 DEBUG: Saving notification settings');
+
     setState(() {
       isLoading = true;
       loadingText = 'Saving Notification changes...';
@@ -237,70 +358,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      await _authService.updateUserData(user!.uid, {
+      final notificationData = {
         'notifications': {
           'email': emailNotify,
           'push': pushNotify,
           'sms': smsNotify,
           'marketing': marketingNotify,
         },
-      });
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      await databaseRef.child('users/${user!.uid}').update(notificationData);
+
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Notification settings updated successfully!'),
-      ));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notification settings updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      print('✅ DEBUG: Notification settings saved successfully');
+
     } catch (e) {
+      print('❌ DEBUG: Error saving notifications: $e');
       setState(() {
         isLoading = false;
         loadingText = '';
         errorMessage = 'Failed to update notifications: $e';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update notifications: $e')),
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update notifications: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  // Fixed format date function to handle both string and timestamp
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return '';
     try {
       DateTime date;
-      // Check if it's a timestamp (all digits)
       if (RegExp(r'^\d+$').hasMatch(dateString)) {
-        // It's a timestamp in milliseconds
         date = DateTime.fromMillisecondsSinceEpoch(int.parse(dateString));
       } else {
-        // It's a date string
         date = DateTime.parse(dateString);
       }
       return DateFormat('MMM dd, yyyy').format(date);
     } catch (e) {
       print('Error parsing date: $e');
-      return dateString; // Return original if parsing fails
+      return dateString;
     }
   }
 
-  // Function to build text field
   Widget _buildTextField(String label, String value, Function(String) onChanged,
       {bool enabled = true,
         TextInputType type = TextInputType.text,
-        Widget? suffixIcon}) {
+        Widget? suffixIcon,
+        bool isRequired = true}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 14, color: Colors.black87),
+          Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+              if (isRequired && enabled)
+                const Text(
+                  ' *',
+                  style: TextStyle(color: Colors.red, fontSize: 14),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           TextFormField(
             initialValue: value,
             enabled: enabled,
             keyboardType: type,
-            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
             onChanged: (val) {
               onChanged(val);
               if (isEditingPersonalInfo) {
@@ -311,6 +456,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFbad012), width: 2),
               ),
               contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -324,7 +477,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Function to build password field
   Widget _buildPasswordField(String label, TextEditingController controller,
       bool obscureText, Function() toggleVisibility) {
     return Padding(
@@ -354,7 +506,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: toggleVisibility,
               ),
             ),
-            validator: (val) => val == null || val.isEmpty ? 'Required' : null,
             onChanged: (val) {
               if (isEditingPassword) {
                 setState(() => formChanged = true);
@@ -366,7 +517,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Function to build toggle
   Widget _buildToggle(
       String label, String description, bool value, Function(bool) onChanged) {
     return Padding(
@@ -395,13 +545,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onChanged(val);
               _saveNotificationSettings();
             },
+            activeColor: const Color(0xFFbad012),
           ),
         ],
       ),
     );
   }
 
-  // Function to build gender option
   Widget _buildGenderOption(String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -409,6 +559,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Radio<String>(
           value: label,
           groupValue: gender,
+          activeColor: const Color(0xFFbad012),
           onChanged: isEditingPersonalInfo
               ? (val) {
             setState(() {
@@ -423,53 +574,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Function to re-authenticate the user.
+  // FIXED: Enhanced re-authentication
   Future<bool> _reAuthenticateUser() async {
-    final formKey = GlobalKey<FormState>(); // Use a local form
+    print('🔐 DEBUG: Starting re-authentication');
+    final formKey = GlobalKey<FormState>();
     String? password;
     bool result = false;
 
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Re-authenticate'),
-        content: Form(  // Wrap with a Form
+        content: Form(
           key: formKey,
           child: TextFormField(
             obscureText: true,
             decoration: const InputDecoration(
-              labelText: 'Enter your password',
+              labelText: 'Enter your current password',
+              border: OutlineInputBorder(),
             ),
             validator: (val) {
-              if (val == null || val.isEmpty) return 'Required';
+              if (val == null || val.isEmpty) return 'Password is required';
               return null;
             },
             onChanged: (val) => password = val,
+            autofocus: true,
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              print('❌ DEBUG: Re-authentication cancelled');
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              if(formKey.currentState?.validate() ?? false){ // Check if form is valid
+              if (formKey.currentState?.validate() ?? false) {
                 try {
+                  print('🔒 DEBUG: Attempting re-authentication...');
                   final credential = EmailAuthProvider.credential(
                     email: user!.email!,
                     password: password!,
                   );
                   await user!.reauthenticateWithCredential(credential);
                   result = true;
-                  Navigator.of(context).pop(); // Return true on success
-                } on FirebaseAuthException catch (e) {
-                  print("Re-authentication error: ${e.message}");
-                  // Show error message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Re-authentication failed: ${e.message}')),
-                  );
+                  print('✅ DEBUG: Re-authentication successful');
                   Navigator.of(context).pop();
+                } on FirebaseAuthException catch (e) {
+                  print("❌ DEBUG: Re-authentication error: ${e.message}");
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Authentication failed: ${e.message}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               }
             },
@@ -528,8 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 onTap: _pickImage,
                                 child: CircleAvatar(
                                   radius: 20,
-                                  backgroundColor:
-                                  Theme.of(context).primaryColor,
+                                  backgroundColor: const Color(0xFFbad012),
                                   child: const Icon(Icons.camera_alt,
                                       size: 16,
                                       color: Colors.white),
@@ -541,20 +701,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 24),
                     Row(
-                      mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Personal Information',
                             style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold)),
                         TextButton(
-                          onPressed: () {
-                            setState(() {
-                              isEditingPersonalInfo =
-                              !isEditingPersonalInfo;
-                              formChanged = false;
-                            });
+                          onPressed: () async {
+                            print('🔄 DEBUG: Edit/Save button pressed. isEditingPersonalInfo: $isEditingPersonalInfo');
+                            if (isEditingPersonalInfo) {
+                              await _savePersonalInfo();
+                            } else {
+                              setState(() {
+                                isEditingPersonalInfo = true;
+                                formChanged = false;
+                              });
+                              print('✅ DEBUG: Editing mode enabled');
+                            }
                           },
                           child: Text(
                             isEditingPersonalInfo ? 'Save' : 'Edit',
@@ -565,48 +729,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildTextField(
-                      'Username',
-                      username,
-                          (val) => setState(() => username = val),
-                      enabled: isEditingPersonalInfo,
-                    ),
-                    _buildTextField(
-                      'Full Name',
-                      name,
-                          (val) => setState(() => name = val),
-                      enabled: isEditingPersonalInfo,
-                    ),
-                    _buildTextField(
-                      'Phone Number',
-                      phone,
-                          (val) => setState(() => phone = val),
-                      type: TextInputType.phone,
-                      enabled: isEditingPersonalInfo,
-                    ),
-                    // Date of Birth field with calendar picker
+                    _buildTextField('Username', username, (val) => setState(() => username = val), enabled: isEditingPersonalInfo),
+                    _buildTextField('Full Name', name, (val) => setState(() => name = val), enabled: isEditingPersonalInfo),
+                    _buildTextField('Phone Number', phone, (val) => setState(() => phone = val), type: TextInputType.phone, enabled: isEditingPersonalInfo),
+
+                    // Date of Birth field
                     Padding(
                       padding: const EdgeInsets.only(bottom: 15),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Date of Birth',
-                            style: TextStyle(fontSize: 14, color: Colors.black87),
-                          ),
+                          const Text('Date of Birth', style: TextStyle(fontSize: 14, color: Colors.black87)),
                           const SizedBox(height: 8),
                           GestureDetector(
                             onTap: isEditingPersonalInfo ? () async {
                               DateTime initialDate = DateTime(2000, 1, 1);
-
-                              // Handle initial date parsing
                               if (dateOfBirth != null && dateOfBirth!.isNotEmpty) {
                                 try {
                                   if (RegExp(r'^\d+$').hasMatch(dateOfBirth!)) {
-                                    // It's a timestamp
                                     initialDate = DateTime.fromMillisecondsSinceEpoch(int.parse(dateOfBirth!));
                                   } else {
-                                    // It's a date string
                                     initialDate = DateTime.parse(dateOfBirth!);
                                   }
                                 } catch (e) {
@@ -623,9 +765,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   return Theme(
                                     data: Theme.of(context).copyWith(
                                       colorScheme: const ColorScheme.light(
-                                        primary: Color(0xFFbad012), // Header background color
-                                        onPrimary: Colors.white, // Header text color
-                                        onSurface: Colors.black, // Calendar text color
+                                        primary: Color(0xFFbad012),
+                                        onPrimary: Colors.white,
+                                        onSurface: Colors.black,
                                       ),
                                     ),
                                     child: child!,
@@ -653,173 +795,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: BorderSide(color: Colors.grey.shade300),
                                   ),
-                                  contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                   filled: !isEditingPersonalInfo,
                                   fillColor: isEditingPersonalInfo ? null : Colors.grey.shade100,
-                                  suffixIcon: isEditingPersonalInfo
-                                      ? const Icon(Icons.calendar_today_outlined)
-                                      : null,
+                                  suffixIcon: isEditingPersonalInfo ? const Icon(Icons.calendar_today_outlined) : null,
                                 ),
-                                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
+
                     const SizedBox(height: 16),
-                    const Text('Gender',
-                        style: TextStyle(
-                            fontSize: 14, color: Colors.black87)),
+                    const Text('Gender', style: TextStyle(fontSize: 14, color: Colors.black87)),
                     Row(
                       children: [
                         _buildGenderOption('Male'),
                         _buildGenderOption('Female'),
+                        _buildGenderOption('Other'),
                       ],
                     ),
-                    if (isEditingPersonalInfo)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed:
-                            formChanged ? _savePersonalInfo : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                              const Color(0xFFbad012),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12),
-                            ),
-                            child: const Text('Save Personal Info'),
-                          ),
-                        ),
-                      ),
+
                     const SizedBox(height: 24),
                     Row(
-                      mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Password Management',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold)),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         TextButton(
-                          onPressed: () {
-                            setState(() {
-                              isEditingPassword =
-                              !isEditingPassword;
-                              formChanged = false;
-                            });
+                          onPressed: () async {
+                            print('🔐 DEBUG: Password Edit/Save button pressed. isEditingPassword: $isEditingPassword');
+                            if (isEditingPassword) {
+                              await _changePassword();
+                            } else {
+                              setState(() {
+                                isEditingPassword = true;
+                                formChanged = false;
+                              });
+                              print('✅ DEBUG: Password editing mode enabled');
+                            }
                           },
                           child: Text(
                             isEditingPassword ? 'Save' : 'Edit',
-                            style: const TextStyle(
-                                color: Color(0xFFbad012)),
+                            style: const TextStyle(color: Color(0xFFbad012)),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildPasswordField(
-                      'Current Password',
-                      _currentPasswordController,
-                      _obscureCurrentPassword,
-                          () {
-                        setState(() {
-                          _obscureCurrentPassword =
-                          !_obscureCurrentPassword;
-                        });
-                      },
-                    ),
-                    _buildPasswordField(
-                      'New Password',
-                      _newPasswordController,
-                      _obscureNewPassword,
-                          () {
-                        setState(() {
-                          _obscureNewPassword =
-                          !_obscureNewPassword;
-                        });
-                      },
-                    ),
-                    _buildPasswordField(
-                      'Confirm New Password',
-                      _confirmNewPasswordController,
-                      _obscureConfirmNewPassword,
-                          () {
-                        setState(() {
-                          _obscureConfirmNewPassword =
-                          !_obscureConfirmNewPassword;
-                        });
-                      },
-                    ),
-                    if (isEditingPassword)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _changePassword,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                              const Color(0xFFbad012),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12),
-                            ),
-                            child: const Text('Change Password'),
-                          ),
-                        ),
-                      ),
+                    _buildPasswordField('Current Password', _currentPasswordController, _obscureCurrentPassword, () {
+                      setState(() => _obscureCurrentPassword = !_obscureCurrentPassword);
+                    }),
+                    _buildPasswordField('New Password', _newPasswordController, _obscureNewPassword, () {
+                      setState(() => _obscureNewPassword = !_obscureNewPassword);
+                    }),
+                    _buildPasswordField('Confirm New Password', _confirmNewPasswordController, _obscureConfirmNewPassword, () {
+                      setState(() => _obscureConfirmNewPassword = !_obscureConfirmNewPassword);
+                    }),
+
                     const SizedBox(height: 24),
-                    const Text('Notification Preferences',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
+                    const Text('Notification Preferences', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    _buildToggle(
-                      'Email Notifications',
-                      'Receive updates and alerts via email',
-                      emailNotify,
-                          (val) => setState(() {
-                        emailNotify = val;
-                      }),
-                    ),
-                    _buildToggle(
-                      'Push Notifications',
-                      'Receive alerts on your device',
-                      pushNotify,
-                          (val) => setState(() {
-                        pushNotify = val;
-                      }),
-                    ),
-                    _buildToggle(
-                      'SMS Notifications',
-                      'Receive text messages for important updates',
-                      smsNotify,
-                          (val) => setState(() {
-                        smsNotify = val;
-                      }),
-                    ),
-                    _buildToggle(
-                      'Marketing Communications',
-                      'Receive promotional offers and newsletters',
-                      marketingNotify,
-                          (val) => setState(() {
-                        marketingNotify = val;
-                      }),
-                    ),
+                    _buildToggle('Email Notifications', 'Receive updates and alerts via email', emailNotify, (val) => setState(() => emailNotify = val)),
+                    _buildToggle('Push Notifications', 'Receive alerts on your device', pushNotify, (val) => setState(() => pushNotify = val)),
+                    _buildToggle('SMS Notifications', 'Receive text messages for important updates', smsNotify, (val) => setState(() => smsNotify = val)),
+                    _buildToggle('Marketing Communications', 'Receive promotional offers and newsletters', marketingNotify, (val) => setState(() => marketingNotify = val)),
+
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -833,15 +875,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const CircularProgressIndicator(),
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFbad012)),
+                    ),
                     const SizedBox(height: 16),
-                    Text(loadingText,
-                        style: const TextStyle(color: Colors.white)),
+                    Text(loadingText, style: const TextStyle(color: Colors.white)),
                   ],
                 ),
               ),
             ),
-          if (errorMessage != null) // Show error message.
+          if (errorMessage != null)
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
