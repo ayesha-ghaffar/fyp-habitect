@@ -23,6 +23,7 @@ import 'views/client_screens/profile_screen.dart';
 import 'views/client_screens/search_architects_screen.dart';
 import 'views/client_screens/post_project_screen.dart';
 import 'views/architect_screens/architect_dashboard_screen.dart';
+import 'views/architect_screens/bid_list_screen.dart';
 import 'views/client_screens/chat_list_screen.dart';
 import 'views/client_screens/uploaded_projects_screen.dart';
 import 'views/client_screens/track_project_screen.dart';
@@ -175,6 +176,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver { // Added Wi
         '/search-architects': (context) => const SearchArchitects(),
         '/post-project': (context) => const PostProject(),
         '/architect-dashboard': (context) => ArchitectDashboard(),
+        '/bid-list': (context) => MyBidsScreen(),
         '/chatListScreen':(context) => ChatListScreen(),
         '/uploaded-projects':(context) => UploadedProjectsScreen(),
         '/track-project':(context) => TrackProjectScreen(),

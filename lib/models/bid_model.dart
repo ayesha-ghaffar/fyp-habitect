@@ -55,7 +55,7 @@ class Bid {
       'website': website,
       'additionalComments': additionalComments,
       'submissionDate': submissionDate.millisecondsSinceEpoch,
-      'status': status.index,
+      'status': status.name,
     };
   }
 
@@ -75,8 +75,27 @@ class Bid {
       website: map['website'],
       additionalComments: map['additionalComments'],
       submissionDate: DateTime.fromMillisecondsSinceEpoch(map['submissionDate'] ?? 0),
-      status: BidStatus.values[map['status'] ?? BidStatus.pending.index],
+      status: _parseStatus(map['status']),
     );
+  }
+  static BidStatus _parseStatus(dynamic statusValue) {
+    if (statusValue == null) return BidStatus.pending;
+
+    // Handle both string and integer values for backward compatibility
+    if (statusValue is int) {
+      return BidStatus.values[statusValue.clamp(0, BidStatus.values.length - 1)];
+    }
+
+    String statusString = statusValue.toString().toLowerCase();
+    switch (statusString) {
+      case 'active':
+        return BidStatus.active;
+      case 'rejected':
+        return BidStatus.rejected;
+      case 'pending':
+      default:
+        return BidStatus.pending;
+    }
   }
 
   // Helper method to get status color

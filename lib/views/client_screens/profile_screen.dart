@@ -131,12 +131,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickImage() async {
     if (!isEditingPersonalInfo) return;
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        imageFile = File(picked.path);
-        formChanged = true;
-      });
+
+    try {
+      final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (picked != null) {
+        setState(() {
+          imageFile = File(picked.path);
+          formChanged = true;
+        });
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking image: $e'),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
+        ),
+      );
     }
   }
 
@@ -463,7 +474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFbad012), width: 2),
+                borderSide: const BorderSide(color: Color(0xFF6B8E23), width: 2),
               ),
               contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -545,7 +556,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onChanged(val);
               _saveNotificationSettings();
             },
-            activeColor: const Color(0xFFbad012),
+            activeColor: const Color(0xFF6B8E23),
           ),
         ],
       ),
@@ -559,7 +570,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Radio<String>(
           value: label,
           groupValue: gender,
-          activeColor: const Color(0xFFbad012),
+          activeColor: const Color(0xFF6B8E23),
           onChanged: isEditingPersonalInfo
               ? (val) {
             setState(() {
@@ -646,12 +657,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile Settings'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+      backgroundColor: Colors.white,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: const Text(
+        'Profile Settings',
+        style: TextStyle(
+          color: Color(0xFF333333),
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
       ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          color: const Color(0xFFE0E0E0),
+          height: 0.25,
+        ),
+      ),
+    ),
       body: Stack(
         children: [
           RefreshIndicator(
@@ -671,32 +697,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundImage: imageFile != null
-                                ? FileImage(imageFile!)
-                                : const AssetImage(
-                                'assets/avatar_placeholder.png')
-                            as ImageProvider,
+                      child: GestureDetector(
+                        onTap: () => _pickImage(),
+                        child: Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF6B8E23), width: 2),
                           ),
-                          if (isEditingPersonalInfo)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: InkWell(
-                                onTap: _pickImage,
-                                child: CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: const Color(0xFFbad012),
-                                  child: const Icon(Icons.camera_alt,
-                                      size: 16,
-                                      color: Colors.white),
+                          child: Stack(
+                            children: [
+                              // Base profile image or empty container
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(48),
+                                child: imageFile != null
+                                    ? Image.file(
+                                  imageFile!,
+                                  width: 96,
+                                  height: 96,
+                                  fit: BoxFit.cover,
+                                )
+                                    : Container(
+                                  width: 96,
+                                  height: 96,
+                                  color: Colors.grey.shade300,
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 48,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                              // Camera overlay for selection
+                              Positioned.fill(
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(48),
+                                    onTap: isEditingPersonalInfo ? _pickImage : null,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isEditingPersonalInfo
+                                            ? Colors.black.withOpacity(0.3)
+                                            : Colors.transparent,
+                                      ),
+                                      child: isEditingPersonalInfo
+                                          ? const Center(
+                                        child: Icon(
+                                          Icons.camera_alt,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      )
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -723,7 +785,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Text(
                             isEditingPersonalInfo ? 'Save' : 'Edit',
                             style: const TextStyle(
-                                color: Color(0xFFbad012)),
+                                color: Color(0xFF6B8E23)),
                           ),
                         ),
                       ],
@@ -765,7 +827,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   return Theme(
                                     data: Theme.of(context).copyWith(
                                       colorScheme: const ColorScheme.light(
-                                        primary: Color(0xFFbad012),
+                                        primary: Color(0xFF6B8E23),
                                         onPrimary: Colors.white,
                                         onSurface: Colors.black,
                                       ),
@@ -838,7 +900,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           },
                           child: Text(
                             isEditingPassword ? 'Save' : 'Edit',
-                            style: const TextStyle(color: Color(0xFFbad012)),
+                            style: const TextStyle(color: Color(0xFF6B8E23)),
                           ),
                         ),
                       ],
@@ -876,7 +938,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFbad012)),
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
                     ),
                     const SizedBox(height: 16),
                     Text(loadingText, style: const TextStyle(color: Colors.white)),

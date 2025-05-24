@@ -114,10 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: '4 Bids',
                         subtitle: 'Active',
                         onTap: () {
-                          final navState = NavigationStateWidget.of(context);
-                          if (navState != null) {
-                            navState.updateSelectedIndex(0);
-                          }
+                          Navigator.pushNamed(context, '/bid-list');
                         }
                       ),
                       _buildStatusCard(
@@ -142,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () {
                           final navState = NavigationStateWidget.of(context);
                           if (navState != null) {
-                          navState.updateSelectedIndex(4);
+                          navState.updateSelectedIndex(3);
                           }
                         }
                       ),

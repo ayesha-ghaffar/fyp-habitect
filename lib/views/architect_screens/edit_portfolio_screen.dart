@@ -524,7 +524,6 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0.5,
         leading: IconButton(
           icon: SvgIcon(iconName: 'close', color: Colors.black87),
           onPressed: () => Navigator.pop(context),
@@ -534,7 +533,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
           style: TextStyle(
             color: Color(0xFF333333),
             fontSize: 18,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         actions: [
@@ -563,6 +562,13 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
             },
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE0E0E0),
+            height: 0.25,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 24),

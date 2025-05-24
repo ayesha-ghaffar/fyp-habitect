@@ -17,6 +17,7 @@ class SvgIcon extends StatelessWidget {
     switch (iconName) {
       case 'active': return 'assets/icons/active.svg';
       case 'add': return 'assets/icons/add.svg';
+      case 'arrow-right': return 'assets/icons/right.svg';
       case 'bookmark': return 'assets/icons/bookmark.svg';
       case 'bookmark-fill': return 'assets/icons/bookmark-fill.svg';
       case 'building': return 'assets/icons/business.svg';

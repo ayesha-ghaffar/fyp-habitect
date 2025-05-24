@@ -58,6 +58,7 @@ flutter:
      - assets/images/empty_portfolio.png
      - assets/icons/active.svg
      - assets/icons/add.svg
+     - assets/icons/right.svg
      - assets/icons/bookmark.svg
      - assets/icons/bookmark-fill.svg
      - assets/icons/business.svg

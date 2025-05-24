@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/views/svg_icon.dart';
+import 'package:fyp/services/project_posting_service.dart';
+import 'package:fyp/models/project_model.dart';
+import 'project_details_screen.dart';
 import 'bid_form_screen.dart';
 
 class FindProjects extends StatefulWidget {
@@ -11,6 +14,447 @@ class FindProjects extends StatefulWidget {
 
 class _FindProjectsState extends State<FindProjects> {
   String activeFilter = "Location";
+  final ProjectPostingService _projectService = ProjectPostingService();
+  List<Project> projects = [];
+  List<Project> filteredProjects = [];
+  bool isLoading = true;
+  String searchQuery = '';
+
+  String? selectedLocation;
+  String? selectedBudgetRange;
+  String? selectedProjectType;
+  String? selectedTimeline;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+
+      final loadedProjects = await _projectService.getAllProjects(status: 'open');
+      setState(() {
+        projects = loadedProjects;
+        filteredProjects = loadedProjects;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading projects: $e')),
+      );
+    }
+  }
+
+  void _filterProjects() {
+    setState(() {
+      filteredProjects = projects.where((project) {
+        final matchesSearch = searchQuery.isEmpty ||
+            project.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
+            project.location.toLowerCase().contains(searchQuery.toLowerCase()) ||
+            project.type.toLowerCase().contains(searchQuery.toLowerCase());
+
+        final matchesLocation = selectedLocation == null ||
+            project.location.toLowerCase().contains(selectedLocation!.toLowerCase());
+
+        final matchesBudget = selectedBudgetRange == null ||
+            _budgetMatchesRange(project.budget, selectedBudgetRange!);
+
+        final matchesType = selectedProjectType == null ||
+            project.type.toLowerCase() == selectedProjectType!.toLowerCase();
+
+        final matchesTimeline = selectedTimeline == null ||
+            _timelineMatches(project.endDate, selectedTimeline!);
+
+        return matchesSearch && matchesLocation && matchesBudget && matchesType && matchesTimeline;
+      }).toList();
+    });
+  }
+
+  String _getProjectImage(String projectType) {
+    // Map project types to available images
+    switch (projectType.toLowerCase()) {
+      case 'new construction':
+        return "assets/images/Hillside Residence.jpg";
+      case 'renovation/remodeling':
+        return "assets/images/Boutique.jpg";
+      case 'commercial':
+        return "assets/images/Nexus Office.jpg";
+      default:
+        return "assets/images/Hillside Residence.jpg";
+    }
+  }
+
+  Color _getCategoryColor(String projectType) {
+    switch (projectType.toLowerCase()) {
+      case 'new construction':
+        return const Color(0xFFE2725B);
+      case 'renovation/remodeling':
+        return Colors.blue;
+      case 'commercial':
+        return Colors.purple;
+      default:
+        return const Color(0xFFE2725B);
+    }
+  }
+
+  String _formatBudget(String budget) {
+    // Add PKR prefix if not already present
+    if (!budget.toLowerCase().contains('pkr')) {
+      return 'PKR $budget';
+    }
+    return budget;
+  }
+
+  String _formatDeadline(DateTime? endDate) {
+    if (endDate == null) {
+      return 'No deadline specified';
+    }
+
+    final now = DateTime.now();
+    final difference = endDate.difference(now).inDays;
+
+    if (difference < 0) {
+      return 'Deadline passed';
+    } else if (difference == 0) {
+      return 'Due today';
+    } else if (difference == 1) {
+      return 'Due tomorrow';
+    } else if (difference < 30) {
+      return 'Due in $difference days';
+    } else {
+      final months = (difference / 30).round();
+      return 'Due in $months month${months > 1 ? 's' : ''}';
+    }
+  }
+
+  bool _budgetMatchesRange(String budget, String range) {
+    // Extract numeric value from budget string
+    final budgetNum = double.tryParse(budget.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
+
+    switch (range) {
+      case 'Under 100K':
+        return budgetNum < 100000;
+      case '100K - 500K':
+        return budgetNum >= 100000 && budgetNum <= 500000;
+      case '500K - 1M':
+        return budgetNum >= 500000 && budgetNum <= 1000000;
+      case '1M - 5M':
+        return budgetNum >= 1000000 && budgetNum <= 5000000;
+      case 'Above 5M':
+        return budgetNum > 5000000;
+      default:
+        return true;
+    }
+  }
+
+  bool _timelineMatches(DateTime? endDate, String timeline) {
+    if (endDate == null) return timeline == 'No deadline';
+
+    final now = DateTime.now();
+    final daysRemaining = endDate.difference(now).inDays;
+
+    switch (timeline) {
+      case 'Urgent (< 1 month)':
+        return daysRemaining < 30;
+      case 'Short term (1-3 months)':
+        return daysRemaining >= 30 && daysRemaining <= 90;
+      case 'Medium term (3-6 months)':
+        return daysRemaining >= 90 && daysRemaining <= 180;
+      case 'Long term (> 6 months)':
+        return daysRemaining > 180;
+      case 'No deadline':
+        return false; // We already checked for null above
+      default:
+        return true;
+    }
+  }
+
+  void _showLocationFilter() {
+    final locations = projects.map((p) => p.location).toSet().toList();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Location',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All Locations'),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: selectedLocation,
+                onChanged: (value) {
+                  setState(() {
+                    selectedLocation = value;
+                    activeFilter = "";
+                  });
+                  _filterProjects();
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...locations.map((location) => ListTile(
+              title: Text(location),
+              leading: Radio<String?>(
+                value: location,
+                groupValue: selectedLocation,
+                onChanged: (value) {
+                  setState(() {
+                    selectedLocation = value;
+                    activeFilter = selectedLocation != null ? "Location" : "";
+                  });
+                  _filterProjects();
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBudgetFilter() {
+    final budgetRanges = [
+      'Under 100K',
+      '100K - 500K',
+      '500K - 1M',
+      '1M - 5M',
+      'Above 5M',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Filter by Budget Range',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('All Budgets'),
+                leading: Radio<String?>(
+                  value: null,
+                  groupValue: selectedBudgetRange,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedBudgetRange = value;
+                      activeFilter = "";
+                    });
+                    _filterProjects();
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+              ...budgetRanges.map((range) => ListTile(
+                title: Text('PKR $range'),
+                leading: Radio<String?>(
+                  value: range,
+                  groupValue: selectedBudgetRange,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedBudgetRange = value;
+                      activeFilter = selectedBudgetRange != null ? "Budget" : "";
+                    });
+                    _filterProjects();
+                    Navigator.pop(context);
+                  },
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showProjectTypeFilter() {
+    final types = projects.map((p) => p.type).toSet().toList();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Project Type',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All Types'),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: selectedProjectType,
+                onChanged: (value) {
+                  setState(() {
+                    selectedProjectType = value;
+                    activeFilter = "";
+                  });
+                  _filterProjects();
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...types.map((type) => ListTile(
+              title: Text(type),
+              leading: Radio<String?>(
+                value: type,
+                groupValue: selectedProjectType,
+                onChanged: (value) {
+                  setState(() {
+                    selectedProjectType = value;
+                    activeFilter = selectedProjectType != null ? "Project Type" : "";
+                  });
+                  _filterProjects();
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTimelineFilter() {
+    final timelines = [
+      'Urgent (< 1 month)',
+      'Short term (1-3 months)',
+      'Medium term (3-6 months)',
+      'Long term (> 6 months)',
+      'No deadline',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Filter by Timeline',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('All Timelines'),
+                leading: Radio<String?>(
+                  value: null,
+                  groupValue: selectedTimeline,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedTimeline = value;
+                      activeFilter = "";
+                    });
+                    _filterProjects();
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+              ...timelines.map((timeline) => ListTile(
+                title: Text(timeline),
+                leading: Radio<String?>(
+                  value: timeline,
+                  groupValue: selectedTimeline,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedTimeline = value;
+                      activeFilter = selectedTimeline != null ? "Timeline" : "";
+                    });
+                    _filterProjects();
+                    Navigator.pop(context);
+                  },
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFilterModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Filters',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        selectedLocation = null;
+                        selectedBudgetRange = null;
+                        selectedProjectType = null;
+                        selectedTimeline = null;
+                        activeFilter = "";
+                      });
+                      _filterProjects();
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Clear All'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  children: [
+                    _buildFilterSection('Location', selectedLocation, _showLocationFilter),
+                    _buildFilterSection('Budget', selectedBudgetRange, _showBudgetFilter),
+                    _buildFilterSection('Project Type', selectedProjectType, _showProjectTypeFilter),
+                    _buildFilterSection('Timeline', selectedTimeline, _showTimelineFilter),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +474,10 @@ class _FindProjectsState extends State<FindProjects> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: TextField(
+                    onChanged: (value) {
+                      searchQuery = value;
+                      _filterProjects();
+                    },
                     decoration: InputDecoration(
                       hintText: 'Search projects...',
                       hintStyle: const TextStyle(
@@ -57,11 +505,10 @@ class _FindProjectsState extends State<FindProjects> {
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
                     child: Row(
                       children: [
-                        _buildFilterChip("Location", 'location'),
-                        _buildFilterChip("Budget", 'money-dollar'),
-                        _buildFilterChip("Project Type", 'building'),
-                        _buildFilterChip("Timeline", 'schedule'),
-                        _buildFilterChip("Rating", 'star'),
+                        _buildFilterChip("Location", 'location', _showLocationFilter),
+                        _buildFilterChip("Budget", 'money-dollar', _showBudgetFilter),
+                        _buildFilterChip("Project Type", 'building', _showProjectTypeFilter),
+                        _buildFilterChip("Timeline", 'schedule', _showTimelineFilter),
                       ],
                     ),
                   ),
@@ -72,99 +519,50 @@ class _FindProjectsState extends State<FindProjects> {
 
           // Projects List
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                _buildProjectCard(
-                  title: "Modern House in Islamabad",
-                  category: "Residential",
-                  categoryColor: const Color(0xFFE2725B),
-                  budget: "PKR 1,500,000 - 2,000,000",
-                  deadline: "Deadline: 4 months (Sep 17, 2025)",
-                  description: "A contemporary 3-bedroom residence with emphasis on sustainable materials and natural lighting. Client seeks innovative design for sloped terrain with panoramic views.",
-                  imageAsset: "assets/images/Hillside Residence.jpg",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SubmitBidForm(
-                          projectTitle: "Modern House in Islamabad",
-                          projectCategory: "Residential",
-                          projectBudget: "PKR 1,500,000 - 2,000,000",
-                        ),
-                      ),
-                    );
-                  }
-                ),
-                const SizedBox(height: 16),
-                _buildProjectCard(
-                  title: "Boutique Hotel Renovation",
-                  category: "Commercial",
-                  categoryColor: Colors.blue,
-                  budget: "PKR 5,000,000 - 7,500,000",
-                  deadline: "Deadline: 8 months (Jan 15, 2026)",
-                  description: "Complete renovation of a 25-room colonial-era hotel in Lahore. Project includes redesigning lobby, guest rooms, and adding a rooftop restaurant while preserving historical elements.",
-                  imageAsset: "assets/images/Boutique.jpg",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SubmitBidForm(
-                          projectTitle: "Boutique Hotel Renovation",
-                          projectCategory: "Commercial",
-                          projectBudget: "PKR 5,000,000 - 7,500,000",
-                        ),
-                      ),
-                    );
-                  }
-                ),
-                const SizedBox(height: 16),
-                _buildProjectCard(
-                  title: "Tech Startup Office Space",
-                  category: "Office",
-                  categoryColor: Colors.purple,
-                  budget: "PKR 3,000,000 - 4,000,000",
-                  deadline: "Deadline: 3 months (Aug 20, 2025)",
-                  description: "Design a modern 5,000 sq ft office space for a growing tech company in Karachi. Focus on collaborative spaces, flexible workstations, and recreational areas to foster creativity.",
-                  imageAsset: "assets/images/Nexus Office.jpg",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SubmitBidForm(
-                          projectTitle: "Tech Startup Office Space",
-                          projectCategory: "Office",
-                          projectBudget: "PKR 3,000,000 - 4,000,000",
-                        ),
-                      ),
-                    );
-                  }
-                ),
-                const SizedBox(height: 16),
-                _buildProjectCard(
-                  title: "Luxury Villa Complex",
-                  category: "Residential",
-                  categoryColor: const Color(0xFFE2725B),
-                  budget: "PKR 10,000,000 - 15,000,000",
-                  deadline: "Deadline: 12 months (May 17, 2026)",
-                  description: "Design a gated community of 8 luxury villas in Murree. Each villa should have unique character while maintaining cohesive aesthetic. Includes communal facilities and landscaping.",
-                  imageAsset: "assets/images/Hillside Residence.jpg",
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SubmitBidForm(
-                          projectTitle: "Luxury Villa Complex",
-                          projectCategory: "Residential",
-                          projectBudget: "PKR 1,500,000 - 2,000,000",
-                        ),
-                      ),
-                    );
-                  }
-                ),
-                // Add bottom padding to account for the FAB and bottom navigation
-                const SizedBox(height: 30),
-              ],
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredProjects.isEmpty
+                ? const Center(
+              child: Text(
+                'No projects found',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+                : RefreshIndicator(
+              onRefresh: _loadProjects,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16.0),
+                itemCount: filteredProjects.length,
+                itemBuilder: (context, index) {
+                  final project = filteredProjects[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: _buildProjectCard(
+                      project: project,
+                      title: project.title,
+                      category: project.type,
+                      categoryColor: _getCategoryColor(project.type),
+                      budget: _formatBudget(project.budget),
+                      deadline: "Deadline: ${_formatDeadline(project.endDate)}",
+                      description: project.notes ?? "No description provided",
+                      imageAsset: _getProjectImage(project.type),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SubmitBidForm(
+                              projectId: project.id,
+                              projectTitle: project.title,
+                              projectCategory: project.type,
+                              projectBudget: _formatBudget(project.budget),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -184,9 +582,7 @@ class _FindProjectsState extends State<FindProjects> {
           borderRadius: BorderRadius.circular(28),
         ),
         child: FloatingActionButton(
-          onPressed: () {
-            // Show filter modal
-          },
+          onPressed: _showFilterModal,
           backgroundColor: Theme.of(context).colorScheme.tertiary,
           child: const SvgIcon(iconName: 'filter-list', color: Colors.white),
         ),
@@ -194,45 +590,24 @@ class _FindProjectsState extends State<FindProjects> {
     );
   }
 
-  Widget _buildFilterChip(String label, String iconName) {
-    final bool isActive = activeFilter == label;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          activeFilter = isActive ? "" : label;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF6B8E23) : const Color(0xFFF9F9F7),
-          borderRadius: BorderRadius.circular(50),
-        ),
-        child: Row(
-          children: [
-            SvgIcon(
-              iconName: iconName,
-              size: 16,
-              color: isActive ? Colors.white : Colors.black87,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isActive ? Colors.white : Colors.black87,
-              ),
-            ),
-          ],
-        ),
+  Widget _buildFilterSection(String title, String? selectedValue, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        title: Text(title),
+        subtitle: Text(selectedValue ?? 'All ${title}s'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
 
   Widget _buildProjectCard({
+    required Project project,
     required String title,
     required String category,
     required Color categoryColor,
@@ -289,6 +664,26 @@ class _FindProjectsState extends State<FindProjects> {
                 ),
                 const SizedBox(height: 8),
 
+                // Location row
+                Row(
+                  children: [
+                    SvgIcon(
+                      iconName: 'location',
+                      size: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      project.location,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
                 // Category and budget
                 Row(
                   children: [
@@ -319,9 +714,9 @@ class _FindProjectsState extends State<FindProjects> {
                     Expanded(
                       child: Text(
                         budget,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
-                          color: const Color(0xFF9E897B),
+                          color: Color(0xFF9E897B),
                         ),
                       ),
                     ),
@@ -341,9 +736,9 @@ class _FindProjectsState extends State<FindProjects> {
                       const SizedBox(width: 6),
                       Text(
                         deadline,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
-                          color: const Color(0xFFDCB287),
+                          color: Color(0xFFDCB287),
                         ),
                       ),
                     ],
@@ -368,7 +763,14 @@ class _FindProjectsState extends State<FindProjects> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProjectDetailsPage(project: project),
+                            ),
+                          );
+                        },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF6B8E23),
                           side: const BorderSide(color: Color(0xFF6B8E23)),
@@ -401,6 +803,40 @@ class _FindProjectsState extends State<FindProjects> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String iconName, VoidCallback onTap) {
+    final bool isActive = activeFilter == label;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF6B8E23) : const Color(0xFFF9F9F7),
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Row(
+          children: [
+            SvgIcon(
+              iconName: iconName,
+              size: 16,
+              color: isActive ? Colors.white : Colors.black87,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isActive ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

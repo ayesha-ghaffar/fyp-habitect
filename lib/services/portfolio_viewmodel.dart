@@ -47,6 +47,43 @@ class PortfolioViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Helper method to safely convert Firebase data to Map<String, dynamic>
+  Map<String, dynamic> _convertToStringMap(dynamic data) {
+    if (data == null) return {};
+
+    if (data is Map<String, dynamic>) {
+      return data;
+    } else if (data is Map) {
+      // Convert Map<Object?, Object?> to Map<String, dynamic>
+      return data.map((key, value) => MapEntry(key.toString(), value));
+    }
+
+    return {};
+  }
+
+  // Helper method to safely get string value
+  String _getString(Map<String, dynamic> data, String key, [String defaultValue = '']) {
+    final value = data[key];
+    return value?.toString() ?? defaultValue;
+  }
+
+  // Helper method to safely get list
+  List<T> _getList<T>(Map<String, dynamic> data, String key, T Function(Map<String, dynamic>) fromMap) {
+    final value = data[key];
+    if (value == null) return <T>[];
+
+    if (value is List) {
+      return value.map((item) {
+        if (item is Map) {
+          return fromMap(_convertToStringMap(item));
+        }
+        return fromMap(<String, dynamic>{});
+      }).toList();
+    }
+
+    return <T>[];
+  }
+
   // Load portfolio from Firebase (without images)
   Future<void> loadPortfolio() async {
     if (currentUserId == null) {
@@ -66,45 +103,44 @@ class PortfolioViewModel extends ChangeNotifier {
         return;
       }
 
-      final data = Map<String, dynamic>.from(snapshot.value as Map);
+      // Safely convert Firebase data
+      final data = _convertToStringMap(snapshot.value);
 
-      // Parse certifications
-      List<CertificationItem> certifications = [];
-      if (data['certifications'] != null) {
-        final certsData = List<Map<String, dynamic>>.from(data['certifications']);
-        certifications = certsData
-            .map((cert) => CertificationItem(
-          title: cert['title'] ?? '',
-          year: cert['year'] ?? '',
-        ))
-            .toList();
-      }
+      // Parse certifications with safe type handling
+      List<CertificationItem> certifications = _getList<CertificationItem>(
+        data,
+        'certifications',
+            (certData) => CertificationItem(
+          title: _getString(certData, 'title'),
+          year: _getString(certData, 'year'),
+        ),
+      );
 
-      // Parse projects (without images)
-      List<ProjectItem> projects = [];
-      if (data['projects'] != null) {
-        final projectsData = List<Map<String, dynamic>>.from(data['projects']);
-        projects = projectsData
-            .map((project) => ProjectItem(
-          title: project['title'] ?? '',
-          description: project['description'] ?? '',
-          completionDate: project['completionDate'] ?? '',
-          // No imageUrl for now
-        ))
-            .toList();
-      }
+      // Parse projects with safe type handling
+      List<ProjectItem> projects = _getList<ProjectItem>(
+        data,
+        'projects',
+            (projectData) => ProjectItem(
+          title: _getString(projectData, 'title'),
+          description: _getString(projectData, 'description'),
+          completionDate: _getString(projectData, 'completionDate'),
+          imageUrl: _getString(projectData, 'imageUrl'),
+          isLocalImage: projectData['isLocalImage'] == true,
+        ),
+      );
 
       _profile = Profile(
-        name: data['name'] ?? '',
-        location: data['location'] ?? '',
-        bio: data['bio'] ?? '',
-        specialty: data['specialty'] ?? '',
+        name: _getString(data, 'name'),
+        location: _getString(data, 'location'),
+        bio: _getString(data, 'bio'),
+        specialty: _getString(data, 'specialty', 'modern'),
         certifications: certifications,
         projects: projects,
       );
 
     } catch (e) {
       _setError('Error loading portfolio: $e');
+      print('Portfolio loading error: $e'); // For debugging
     } finally {
       _setLoading(false);
     }
@@ -128,7 +164,8 @@ class PortfolioViewModel extends ChangeNotifier {
           'title': project.title,
           'description': project.description,
           'completionDate': project.completionDate,
-          // Skip imageUrl for now
+          'imageUrl': project.imageUrl ?? '',
+          'isLocalImage': project.isLocalImage,
         });
       }
 
@@ -168,6 +205,7 @@ class PortfolioViewModel extends ChangeNotifier {
       return true;
     } catch (e) {
       _setError('Error saving portfolio: $e');
+      print('Portfolio saving error: $e'); // For debugging
       return false;
     } finally {
       _setSaving(false);
@@ -186,7 +224,7 @@ class PortfolioViewModel extends ChangeNotifier {
       name: '',
       location: '',
       bio: '',
-      specialty: '',
+      specialty: 'modern',
       certifications: [],
       projects: [],
     );

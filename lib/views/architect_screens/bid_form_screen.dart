@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fyp/views/svg_icon.dart';
 import 'package:fyp/services/bid_form_validation.dart';
+import 'package:fyp/models/bid_model.dart';
 
 class SubmitBidForm extends StatefulWidget {
+  final String? projectId; // Add projectId parameter
   final String projectTitle;
   final String projectCategory;
   final String projectBudget;
+  final Bid? existingBid;
 
   const SubmitBidForm({
     Key? key,
+    required this.projectId, // Make projectId required
     required this.projectTitle,
     required this.projectCategory,
     required this.projectBudget,
+    this.existingBid,
   }) : super(key: key);
 
   @override
@@ -21,6 +28,8 @@ class SubmitBidForm extends StatefulWidget {
 class _SubmitBidFormState extends State<SubmitBidForm> {
   final _formKey = GlobalKey<FormState>();
   final BidFormValidator _validator = BidFormValidator();
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Form controllers
   final TextEditingController _summaryController = TextEditingController();
@@ -35,6 +44,29 @@ class _SubmitBidFormState extends State<SubmitBidForm> {
   final TextEditingController _commentsController = TextEditingController();
 
   bool _termsAccepted = false;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeFormFields();
+  }
+
+  void _initializeFormFields() {
+    if (widget.existingBid != null) {
+      final bid = widget.existingBid!;
+      _summaryController.text = bid.summary;
+      _approachController.text = bid.approach;
+      _proposalController.text = bid.proposedSolution;
+      _timelineController.text = bid.timeline;
+      _costController.text = bid.cost.toString();
+      _phoneController.text = bid.phone ?? '';
+      _emailController.text = bid.email ?? '';
+      _websiteController.text = bid.website ?? '';
+      _commentsController.text = bid.additionalComments ?? '';
+      _termsAccepted = true; // Auto-accept terms for existing bids
+    }
+  }
 
   @override
   void dispose() {
@@ -54,19 +86,26 @@ class _SubmitBidFormState extends State<SubmitBidForm> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F7),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
         leading: IconButton(
           icon: SvgIcon(iconName: 'close', color: Colors.black87),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          'Submit Bid',
-          style: TextStyle(
+        title: Text(
+          widget.existingBid != null ? 'Edit Bid' : 'Submit Bid',
+          style: const TextStyle(
             color: Colors.black87,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE0E0E0),
+            height: 0.25,
           ),
         ),
       ),
@@ -183,7 +222,7 @@ class _SubmitBidFormState extends State<SubmitBidForm> {
             SizedBox(
               height: 50,
               child: ElevatedButton(
-                onPressed: _submitBid,
+                onPressed: _isSubmitting ? null : _submitBid,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6B8E23),
                   foregroundColor: Colors.white,
@@ -191,9 +230,18 @@ class _SubmitBidFormState extends State<SubmitBidForm> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
-                  'Submit Bid',
-                  style: TextStyle(
+                child: _isSubmitting
+                    ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : Text(
+                  widget.existingBid != null ? 'Update Bid' : 'Submit Bid',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -404,35 +452,181 @@ class _SubmitBidFormState extends State<SubmitBidForm> {
     );
   }
 
-  void _submitBid() {
-    // First check terms acceptance
+  Bid _constructBidFromForm(String bidId, String architectId, int submissionDate) {
+    return Bid(
+      id: bidId,
+      projectId: widget.projectId!,
+      architectId: architectId,
+      summary: _summaryController.text.trim(),
+      approach: _approachController.text.trim(),
+      proposedSolution: _proposalController.text.trim(),
+      timeline: _timelineController.text.trim(),
+      cost: double.tryParse(_costController.text.replaceAll(',', '').replaceAll('PKR', '').trim()) ?? 0.0,
+      phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+      website: _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+      additionalComments: _commentsController.text.trim().isEmpty ? null : _commentsController.text.trim(),
+      submissionDate: DateTime.fromMillisecondsSinceEpoch(submissionDate),
+      status: widget.existingBid?.status ?? BidStatus.pending,
+    );
+  }
+
+  Future<void> _submitBid() async {
     if (!_termsAccepted) {
-      setState(() {}); // Trigger rebuild to show error message
+      setState(() {});
       return;
     }
 
-    // Then validate the form
-    if (_formKey.currentState!.validate()) {
-      // Show success dialog/message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bid submitted successfully!'),
-          backgroundColor: Color(0xFF6B8E23),
-        ),
-      );
-
-      // Close the form after a short delay
-      Future.delayed(const Duration(seconds: 2), () {
-        Navigator.of(context).pop();
-      });
-    } else {
-      // Scroll to the first error
+    if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please fix the errors before submitting'),
           backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
+
+    final User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You must be logged in to submit a bid'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      // Debug cost parsing
+      print('Raw cost text: "${_costController.text}"');
+      print('Cost text after removing commas: "${_costController.text.replaceAll(',', '')}"');
+
+      final double cost = double.tryParse(_costController.text.replaceAll(',', '').replaceAll('PKR', '').trim()) ?? 0.0;
+      print('Parsed cost: $cost');
+
+      // Use existing bid ID if editing, otherwise generate new one
+      final String bidId = widget.existingBid?.id ?? _database.child('bids').push().key!;
+
+      // Handle submission date properly
+      int submissionDate;
+      if (widget.existingBid != null) {
+        // For existing bids, preserve the original submission date
+        try {
+          submissionDate = widget.existingBid!.submissionDate.millisecondsSinceEpoch;
+          print('Using existing submission date: $submissionDate');
+        } catch (e) {
+          print('Error handling submission date: $e');
+          submissionDate = DateTime.now().millisecondsSinceEpoch;
+        }
+      } else {
+        // For new bids, use current timestamp
+        submissionDate = DateTime.now().millisecondsSinceEpoch;
+        print('Using new submission date: $submissionDate');
+      }
+
+      final Map<String, dynamic> bidData = {
+        'projectId': widget.projectId,
+        'architectId': currentUser.uid,
+        'summary': _summaryController.text.trim(),
+        'approach': _approachController.text.trim(),
+        'proposedSolution': _proposalController.text.trim(),
+        'timeline': _timelineController.text.trim(),
+        'cost': cost,
+        'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+        'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+        'website': _websiteController.text.trim().isEmpty ? null : _websiteController.text.trim(),
+        'additionalComments': _commentsController.text.trim().isEmpty ? null : _commentsController.text.trim(),
+        'submissionDate': submissionDate,
+        'status': widget.existingBid?.status.name ?? 'pending',
+        'lastModified': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      // Debug: Print the update data
+      print('=== BID UPDATE DEBUG ===');
+      print('Bid ID: $bidId');
+      print('Project ID: ${widget.projectId}');
+      print('User ID: ${currentUser.uid}');
+      print('Is Edit: ${widget.existingBid != null}');
+      print('Updating bid with data: $bidData');
+
+      // Try updating each path separately to identify which one fails
+      try {
+        // First, update the main bid data
+        await _database.child('bids').child(bidId).set(bidData);
+        print('✅ Main bid data updated successfully');
+
+        // Then update the project's bid reference
+        final projectBidData = {
+          'architectId': currentUser.uid,
+          'cost': cost,
+          'timeline': _timelineController.text.trim(),
+          'status': widget.existingBid?.status.name ?? 'pending',
+          'submissionDate': submissionDate,
+          'lastModified': DateTime.now().millisecondsSinceEpoch,
+        };
+
+        await _database.child('projects').child(widget.projectId!).child('bids').child(bidId).set(projectBidData);
+        print('✅ Project bid reference updated successfully');
+
+        // Verify the data was actually written
+        final verifySnapshot = await _database.child('bids').child(bidId).get();
+        if (verifySnapshot.exists) {
+          final verifyData = verifySnapshot.value as Map<dynamic, dynamic>;
+          print('✅ Verification - Data exists in database:');
+          print('   Cost in DB: ${verifyData['cost']}');
+          print('   Summary in DB: ${verifyData['summary']?.toString().substring(0, 50)}...');
+          print('   Last Modified: ${verifyData['lastModified']}');
+        } else {
+          print('❌ Verification failed - Data not found in database');
+        }
+
+      } catch (updateError) {
+        print('❌ Detailed update error: $updateError');
+        throw updateError;
+      }
+
+      // Construct the updated Bid object
+      final updatedBid = _constructBidFromForm(bidId, currentUser.uid, submissionDate);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.existingBid != null ? 'Bid updated successfully!' : 'Bid submitted successfully!'),
+            backgroundColor: const Color(0xFF6B8E23),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            Navigator.of(context).pop(updatedBid); // Return the updated Bid object
+          }
+        });
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error updating/submitting bid: $e');
+      print('Stack trace: $stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error ${widget.existingBid != null ? 'updating' : 'submitting'} bid: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 }

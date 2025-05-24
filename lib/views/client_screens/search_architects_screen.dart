@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:remixicon/remixicon.dart';
+import '../svg_icon.dart';
 
 class SearchArchitects extends StatefulWidget {
   const SearchArchitects({super.key});
@@ -10,8 +11,17 @@ class SearchArchitects extends StatefulWidget {
 
 class _SearchArchitectsState extends State<SearchArchitects> {
   bool _showFilterModal = false;
-  final ScrollController _filterChipController = ScrollController();
   final ScrollController _searchResultsController = ScrollController();
+  String activeFilter = "";
+  String searchQuery = '';
+
+  // Filter state variables
+  String? selectedLocation;
+  String? selectedSpecialty;
+  String? selectedRating;
+  String? selectedAvailability;
+  String? selectedBudgetRange;
+
   List<String> selectedSpecialties = ['Residential'];
 
   void _toggleFilterModal() {
@@ -38,286 +48,353 @@ class _SearchArchitectsState extends State<SearchArchitects> {
     });
   }
 
+  void _showLocationFilter() {
+    final locations = ['Islamabad', 'Rawalpindi', 'Karachi', 'Lahore', 'Faisalabad'];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Location',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All Locations'),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: selectedLocation,
+                onChanged: (value) {
+                  setState(() {
+                    selectedLocation = value;
+                    activeFilter = "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...locations.map((location) => ListTile(
+              title: Text(location),
+              leading: Radio<String?>(
+                value: location,
+                groupValue: selectedLocation,
+                onChanged: (value) {
+                  setState(() {
+                    selectedLocation = value;
+                    activeFilter = selectedLocation != null ? "Location" : "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSpecialtyFilter() {
+    final specialties = ['Residential', 'Commercial', 'Interior', 'Landscape', 'Sustainable', 'Modern'];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Specialty',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All Specialties'),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: selectedSpecialty,
+                onChanged: (value) {
+                  setState(() {
+                    selectedSpecialty = value;
+                    activeFilter = "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...specialties.map((specialty) => ListTile(
+              title: Text(specialty),
+              leading: Radio<String?>(
+                value: specialty,
+                groupValue: selectedSpecialty,
+                onChanged: (value) {
+                  setState(() {
+                    selectedSpecialty = value;
+                    activeFilter = selectedSpecialty != null ? "Specialty" : "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRatingFilter() {
+    final ratings = ['4.5+', '4.0+', '3.5+', 'All'];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Rating',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ...ratings.map((rating) => ListTile(
+              title: Text(rating),
+              leading: Radio<String?>(
+                value: rating == 'All' ? null : rating,
+                groupValue: selectedRating,
+                onChanged: (value) {
+                  setState(() {
+                    selectedRating = value;
+                    activeFilter = selectedRating != null ? "Rating" : "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAvailabilityFilter() {
+    final availabilities = ['Available Now', 'This Week', 'This Month'];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Availability',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Any Time'),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: selectedAvailability,
+                onChanged: (value) {
+                  setState(() {
+                    selectedAvailability = value;
+                    activeFilter = "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...availabilities.map((availability) => ListTile(
+              title: Text(availability),
+              leading: Radio<String?>(
+                value: availability,
+                groupValue: selectedAvailability,
+                onChanged: (value) {
+                  setState(() {
+                    selectedAvailability = value;
+                    activeFilter = selectedAvailability != null ? "Availability" : "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBudgetFilter() {
+    final budgetRanges = ['\$50-100/hr', '\$100-150/hr', '\$150-200/hr', '\$200+/hr'];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Budget Range',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All Budgets'),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: selectedBudgetRange,
+                onChanged: (value) {
+                  setState(() {
+                    selectedBudgetRange = value;
+                    activeFilter = "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...budgetRanges.map((range) => ListTile(
+              title: Text(range),
+              leading: Radio<String?>(
+                value: range,
+                groupValue: selectedBudgetRange,
+                onChanged: (value) {
+                  setState(() {
+                    selectedBudgetRange = value;
+                    activeFilter = selectedBudgetRange != null ? "Budget" : "";
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFilterModalBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Filters',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        selectedLocation = null;
+                        selectedSpecialty = null;
+                        selectedRating = null;
+                        selectedAvailability = null;
+                        selectedBudgetRange = null;
+                        activeFilter = "";
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Clear All'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  children: [
+                    _buildFilterSection('Location', selectedLocation, _showLocationFilter),
+                    _buildFilterSection('Specialty', selectedSpecialty, _showSpecialtyFilter),
+                    _buildFilterSection('Rating', selectedRating, _showRatingFilter),
+                    _buildFilterSection('Availability', selectedAvailability, _showAvailabilityFilter),
+                    _buildFilterSection('Budget', selectedBudgetRange, _showBudgetFilter),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Remix.arrow_left_line),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        title: const Text('Search Architects',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        actions: [
-          IconButton(
-            icon: const Icon(Remix.equalizer_line),
-            onPressed: _toggleFilterModal,
-          ),
-        ],
-        backgroundColor: Colors.white,
-        shadowColor: Colors.grey.withOpacity(0.2),
-        elevation: 1,
-      ),
-      body: Stack(
+      body: Column(
         children: [
-          Padding(
-            padding:
-            const EdgeInsets.only(left: 16, top: 16, right: 16, bottom: 70),
+          // Search & Filter Section (sticky)
+          Container(
+            color: Theme.of(context).colorScheme.surface,
+            padding: const EdgeInsets.all(16.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Search Bar
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search by name, specialty, location...',
-                    prefixIcon:
-                    const Icon(Remix.search_line, color: Colors.grey),
-                    contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 16),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[100],
+                // Search input
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.background,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-
-                // Filter Chips
-                SizedBox(
-                  height: 40,
-                  child: Scrollbar(
-                    controller: _filterChipController,
-                    thumbVisibility: false,
-                    child: ListView(
-                      controller: _filterChipController,
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Remix.filter_3_line, size: 16),
-                          label: const Text('All Filters'),
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            textStyle: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w500),
-                            backgroundColor: const Color(0xFFbad012),
-                            foregroundColor: Colors.white,
-                          ),
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search by name, specialty, location...',
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: SvgIcon(
+                          iconName: 'search',
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                          child: const Text('Location',
-                              style: TextStyle(fontSize: 12)),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                          child: const Text('Specialty',
-                              style: TextStyle(fontSize: 12)),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                          child: const Text('Rating 4+',
-                              style: TextStyle(fontSize: 12)),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                          child: const Text('Available Now',
-                              style: TextStyle(fontSize: 12)),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                          child: const Text('Budget',
-                              style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
 
-                // Sort and View Options
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('24 architects found',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    Row(
+                // Filter chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    child: Row(
                       children: [
-                        Row(
-                          children: const [
-                            Text('Sort by:',
-                                style: TextStyle(fontSize: 12)),
-                            SizedBox(width: 4),
-                            Text('Rating',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500)),
-                            Icon(Remix.arrow_down_s_line, size: 16),
-                          ],
-                        ),
-                        const SizedBox(width: 16),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          width: 32,
-                          height: 32,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () {},
-                            icon: const Icon(Remix.list_check_2,
-                                color: Color(0xFFbad012), size: 20),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFbad012),
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          width: 32,
-                          height: 32,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () {},
-                            icon: const Icon(Remix.grid_line,
-                                color: Colors.white, size: 20),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Architect Cards
-                Expanded(
-                  child: Scrollbar(
-                    controller: _searchResultsController,
-                    thumbVisibility: false,
-                    child: GridView.count(
-                      controller: _searchResultsController,
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.8,
-                      children: [
-                        _buildArchitectCard(
-                          onTap: () => _viewProfile(1),
-                          imageUrl:
-                          "https://readdy.ai/api/search-image?query=professional%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch1&orientation=portrait",
-                          name: "Aqsa Irfan",
-                          rating: 4.9,
-                          reviewCount: 124,
-                          location: "Islamabad, 2.4 mi",
-                          specialty: "Residential",
-                          priceRange: "\$120-150/hr",
-                        ),
-                        _buildArchitectCard(
-                          onTap: () => _viewProfile(2),
-                          imageUrl:
-                          "https://readdy.ai/api/search-image?query=professional%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch2&orientation=portrait",
-                          name: "M. Ali",
-                          rating: 4.8,
-                          reviewCount: 87,
-                          location: "Islamabad, 5.1 mi",
-                          specialty: "Commercial",
-                          priceRange: "\$140-180/hr",
-                        ),
-                        _buildArchitectCard(
-                          onTap: () => _viewProfile(3),
-                          imageUrl:
-                          "https://readdy.ai/api/search-image?query=professional%20asian%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch3&orientation=portrait",
-                          name: "Amna Khan",
-                          rating: 4.7,
-                          reviewCount: 56,
-                          location: "Rawalpindi, 3.8 mi",
-                          specialty: "Interior",
-                          priceRange: "\$110-140/hr",
-                        ),
-                        _buildArchitectCard(
-                          onTap: () => _viewProfile(4),
-                          imageUrl:
-                          "https://readdy.ai/api/search-image?query=professional%20black%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch4&orientation=portrait",
-                          name: "Ahmed",
-                          rating: 4.9,
-                          reviewCount: 142,
-                          location: "Islamabad, 1.5 mi",
-                          specialty: "Sustainable",
-                          priceRange: "\$150-200/hr",
-                        ),
-                        _buildArchitectCard(
-                          onTap: () => _viewProfile(5),
-                          imageUrl:
-                          "https://readdy.ai/api/search-image?query=professional%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch5&orientation=portrait",
-                          name: "Mariam Zahid",
-                          rating: 4.6,
-                          reviewCount: 78,
-                          location: "Rawalpindi, 4.2 mi",
-                          specialty: "Landscape",
-                          priceRange: "\$130-160/hr",
-                        ),
-                        _buildArchitectCard(
-                          onTap: () => _viewProfile(6),
-                          imageUrl:
-                          "https://readdy.ai/api/search-image?query=professional%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch6&orientation=portrait",
-                          name: "Hamza",
-                          rating: 4.8,
-                          reviewCount: 95,
-                          location: "Rawalpindi, 3.1 mi",
-                          specialty: "Modern",
-                          priceRange: "\$140-190/hr",
-                        ),
+                        _buildFilterChip("Location", 'location', _showLocationFilter),
+                        _buildFilterChip("Specialty", 'building', _showSpecialtyFilter),
+                        _buildFilterChip("Rating", 'star', _showRatingFilter),
+                        _buildFilterChip("Availability", 'calendar', _showAvailabilityFilter),
+                        _buildFilterChip("Budget", 'money-dollar', _showBudgetFilter),
                       ],
                     ),
                   ),
@@ -326,57 +403,192 @@ class _SearchArchitectsState extends State<SearchArchitects> {
             ),
           ),
 
-          // Filter Modal
-          if (_showFilterModal)
-            GestureDetector(
-              onTap: _toggleFilterModal,
-              behavior: HitTestBehavior.opaque,
-              child: Stack(
-                children: [
-                  Container(
-                    color: Colors.black.withOpacity(0.5),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _buildFilterModal(
-                      onClose: _toggleFilterModal,
-                      selectedSpecialties: selectedSpecialties,
-                      onSpecialtyChanged: _toggleSpecialty,
+          // Sort and View Options
+          Container(
+            color: Theme.of(context).colorScheme.surface,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('24 architects found',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                Row(
+                  children: [
+                    Row(
+                      children: [
+                        const Text('Sort by:',
+                            style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 4),
+                        Text('Rating',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Theme.of(context).colorScheme.primary)),
+                        Icon(Remix.arrow_down_s_line,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                      ],
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.background,
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      width: 32,
+                      height: 32,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () {},
+                        icon: Icon(Remix.list_check_2,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      width: 32,
+                      height: 32,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () {},
+                        icon: const Icon(Remix.grid_line,
+                            color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
+          ),
 
-          // Tab Bar
-          Align(
-            alignment: Alignment.bottomCenter,
+          // Architect Cards
+          Expanded(
             child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
-              ),
-              height: 60,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildTabItem(
-                      icon: Remix.home_4_line, label: 'Home', onPressed: () {}),
-                  _buildTabItem(
-                      icon: Remix.folder_line,
-                      label: 'Projects',
-                      onPressed: () {}),
-                  _buildTabItem(
-                      icon: Remix.message_2_line,
-                      label: 'Messages',
-                      onPressed: () {}),
-                  _buildTabItem(
-                      icon: Remix.user_line, label: 'Profile', onPressed: () {}),
-                ],
+              color: Theme.of(context).colorScheme.background,
+              child: Scrollbar(
+                controller: _searchResultsController,
+                thumbVisibility: true, // Fixed: this should be bool, not VoidCallback
+                child: GridView.count(
+                  controller: _searchResultsController,
+                  padding: const EdgeInsets.all(16.0),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.6,
+                  children: [
+                    _buildArchitectCard(
+                      onTap: () => _viewProfile(1),
+                      imageUrl:
+                      "https://readdy.ai/api/search-image?query=professional%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch1&orientation=portrait",
+                      name: "Aqsa Irfan",
+                      rating: 4.9,
+                      reviewCount: 124,
+                      location: "Islamabad, 2.4 mi",
+                      specialty: "Residential",
+                      priceRange: "\$120-150/hr",
+                    ),
+                    _buildArchitectCard(
+                      onTap: () => _viewProfile(2),
+                      imageUrl:
+                      "https://readdy.ai/api/search-image?query=professional%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch2&orientation=portrait",
+                      name: "M. Ali",
+                      rating: 4.8,
+                      reviewCount: 87,
+                      location: "Islamabad, 5.1 mi",
+                      specialty: "Commercial",
+                      priceRange: "\$140-180/hr",
+                    ),
+                    _buildArchitectCard(
+                      onTap: () => _viewProfile(3),
+                      imageUrl:
+                      "https://readdy.ai/api/search-image?query=professional%20asian%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch3&orientation=portrait",
+                      name: "Amna Khan",
+                      rating: 4.7,
+                      reviewCount: 56,
+                      location: "Rawalpindi, 3.8 mi",
+                      specialty: "Interior",
+                      priceRange: "\$110-140/hr",
+                    ),
+                    _buildArchitectCard(
+                      onTap: () => _viewProfile(4),
+                      imageUrl:
+                      "https://readdy.ai/api/search-image?query=professional%20black%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch4&orientation=portrait",
+                      name: "Ahmed",
+                      rating: 4.9,
+                      reviewCount: 142,
+                      location: "Islamabad, 1.5 mi",
+                      specialty: "Sustainable",
+                      priceRange: "\$150-200/hr",
+                    ),
+                    _buildArchitectCard(
+                      onTap: () => _viewProfile(5),
+                      imageUrl:
+                      "https://readdy.ai/api/search-image?query=professional%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch5&orientation=portrait",
+                      name: "Mariam Zahid",
+                      rating: 4.6,
+                      reviewCount: 78,
+                      location: "Rawalpindi, 4.2 mi",
+                      specialty: "Landscape",
+                      priceRange: "\$130-160/hr",
+                    ),
+                    _buildArchitectCard(
+                      onTap: () => _viewProfile(6),
+                      imageUrl:
+                      "https://readdy.ai/api/search-image?query=professional%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch6&orientation=portrait",
+                      name: "Hamza",
+                      rating: 4.8,
+                      reviewCount: 95,
+                      location: "Rawalpindi, 3.1 mi",
+                      specialty: "Modern",
+                      priceRange: "\$140-190/hr",
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ],
+      ),
+      // Filter FAB (Fixed: changed method name to avoid confusion)
+      floatingActionButton: Container(
+        margin: const EdgeInsets.only(bottom: 64),
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).colorScheme.tertiary,
+              spreadRadius: 2,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: FloatingActionButton(
+          onPressed: _showFilterModalBottomSheet, // Fixed: use proper method name
+          backgroundColor: Theme.of(context).colorScheme.tertiary,
+          child: const SvgIcon(iconName: 'filter-list', color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection(String title, String? selectedValue, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ListTile(
+        title: Text(title),
+        subtitle: Text(selectedValue ?? 'All ${title}s'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
@@ -388,9 +600,9 @@ class _SearchArchitectsState extends State<SearchArchitects> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 24),
+          Icon(icon, size: 24, color: Colors.grey.shade600),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 10)),
+          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
         ],
       ),
     );
@@ -410,15 +622,15 @@ class _SearchArchitectsState extends State<SearchArchitects> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(8.0),
-          border: Border.all(color: Colors.grey.shade100),
+          border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 3),
+              color: Colors.black.withOpacity(0.03),
+              spreadRadius: 0,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -492,14 +704,15 @@ class _SearchArchitectsState extends State<SearchArchitects> {
                             overflow: TextOverflow.ellipsis),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Remix.verified_badge_fill,
-                          color: Color(0xFFbad012), size: 14),
+                      Icon(Remix.verified_badge_fill,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 14),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 12),
+                      Icon(Icons.star, color: Theme.of(context).colorScheme.tertiary, size: 12),
                       const SizedBox(width: 4),
                       Text('$rating ($reviewCount)',
                           style: const TextStyle(fontSize: 10)),
@@ -508,12 +721,12 @@ class _SearchArchitectsState extends State<SearchArchitects> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Remix.map_pin_line,
-                          color: Colors.grey, size: 12),
+                      Icon(Remix.map_pin_line,
+                          color: Colors.grey.shade600, size: 12),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(location,
-                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                             overflow: TextOverflow.ellipsis),
                       ),
                     ],
@@ -527,19 +740,21 @@ class _SearchArchitectsState extends State<SearchArchitects> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFbad012).withOpacity(0.1),
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(specialty,
-                            style: const TextStyle(
-                                fontSize: 10, color: Color(0xFFbad012))),
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: Theme.of(context).colorScheme.primary)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(priceRange,
-                      style:
-                      const TextStyle(fontSize: 10, color: Colors.grey)),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Theme.of(context).colorScheme.tertiaryFixed)),
                 ],
               ),
             ),
@@ -549,390 +764,36 @@ class _SearchArchitectsState extends State<SearchArchitects> {
     );
   }
 
-  Widget _buildFilterModal({
-    required VoidCallback onClose,
-    required List<String> selectedSpecialties,
-    required Function(String) onSpecialtyChanged,
-  }) {
-    return Container(
-      constraints:
-      BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.0)),
-      ),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+  Widget _buildFilterChip(String label, String icon, VoidCallback onTap) {
+    final bool isActive = activeFilter == label;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.background,
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Row(
           children: [
-      Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('All Filters',
-              style:
-              TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          IconButton(
-            icon: const Icon(Remix.close_line),
-            onPressed: onClose,
-          ),
-        ],
-      ),
-    ),
-    const Divider(height: 1),
-    Expanded(
-    child: SingleChildScrollView(
-    padding: const EdgeInsets.all(16.0),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    // Location Filter
-    const Text('Location',
-    style:
-    TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-    const SizedBox(height: 8),
-    TextField(
-    decoration: const InputDecoration(
-    hintText: 'Enter city or zip code',
-    prefixIcon: Icon(Remix.map_pin_line,
-    color: Colors.grey),
-    ),
-    style: const TextStyle(fontSize: 14),
-    ),
-    const SizedBox(height: 16),
-    const Text('Distance',
-    style: TextStyle(fontSize: 14, color: Colors.grey)),
-    const SizedBox(height: 8),
-    SliderTheme(
-    data: SliderTheme.of(context).copyWith(
-    activeTrackColor: const Color(0xFFbad012),
-    inactiveTrackColor: Colors.grey[300],
-    thumbColor: const Color(0xFFbad012),
-    ),
-    child: const Slider(
-    value: 10,
-    min: 1,
-    max: 50,
-    divisions: 49,
-    label: '10 miles',
-    onChanged: null, // For demonstration, should be implemented
-    ),
-    ),
-    Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: const [
-    Text('1 mile',
-    style: TextStyle(fontSize: 10, color: Colors.grey)),
-    Text('10 miles',
-    style: TextStyle(fontSize: 10, color: Colors.grey)),
-    Text('50 miles',
-    style: TextStyle(fontSize: 10, color: Colors.grey)),
-    ],
-    ),
-    const SizedBox(height: 24),
-
-    // Specialty Filter
-    const Text('Specialty',
-    style:
-    TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-    const SizedBox(height: 8),
-    GridView.count(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    crossAxisCount: 2,
-    childAspectRatio: 3,
-    crossAxisSpacing: 8,
-    mainAxisSpacing: 8,
-    children: [
-    _buildCheckboxFilter(
-    label: 'Residential',
-    value: selectedSpecialties.contains('Residential'),
-    onChanged: (bool? value) {
-    if (value != null) {
-    onSpecialtyChanged('Residential');
-    }
-    },
-    ),
-    _buildCheckboxFilter(
-    label: 'Commercial',
-    value: selectedSpecialties.contains('Commercial'),
-    onChanged: (bool? value) {
-    if (value != null) {
-    onSpecialtyChanged('Commercial');
-    }
-    },
-    ),
-    _buildCheckboxFilter(
-    label: 'Interior Design',
-    value: selectedSpecialties.contains('Interior'),
-    onChanged: (bool? value) {
-    if (value != null) {
-    onSpecialtyChanged('Interior');
-    }
-    },
-    ),
-    _buildCheckboxFilter(
-    label: 'Landscape',
-    value: selectedSpecialties.contains('Landscape'),
-    onChanged: (bool? value) {
-    if (value != null) {
-    onSpecialtyChanged('Landscape');
-    }
-    },
-    ),
-    _buildCheckboxFilter(
-    label: 'Sustainable',
-    value: selectedSpecialties.contains('Sustainable'),
-    onChanged: (bool? value) {
-    if (value != null) {
-    onSpecialtyChanged('Sustainable');
-    }
-    },
-    ),
-    _buildCheckboxFilter(
-    label: 'Urban Planning',
-    value: selectedSpecialties.contains('Urban'),
-    onChanged: (bool? value) {
-    if (value != null) {
-    onSpecialtyChanged('Urban');
-    }
-    },
-    ),
-    ],
-    ),
-    const SizedBox(height: 24),
-
-    // Rating Filter
-    const Text('Rating',
-    style:
-    TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-    const SizedBox(height: 8),
-    Row(
-    children: [
-    Expanded(
-    child: OutlinedButton(
-    onPressed: () {},
-    style: OutlinedButton.styleFrom(
-    backgroundColor: const Color(0xFFbad012),
-    foregroundColor: Colors.white,
-    ),
-    child: const Text('4.5+'),
-    ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-    child: OutlinedButton(
-    onPressed: () {},
-    child: const Text('4.0+'),
-    ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-    child: OutlinedButton(
-    onPressed: () {},
-    child: const Text('3.5+'),
-    ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-    child: OutlinedButton(
-    onPressed: () {},
-    child: const Text('All'),
-    ),
-    ),
-    ],
-    ),
-    const SizedBox(height: 24),
-
-    // Availability Filter
-    const Text('Availability',
-    style:
-    TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-    const SizedBox(height: 8),
-    Row(
-    children: [
-    Expanded(
-    child: OutlinedButton(
-    onPressed: () {},
-    style: OutlinedButton.styleFrom(
-    backgroundColor: const Color(0xFFbad012),
-    foregroundColor: Colors.white,
-    ),
-    child: const Text('Available Now'),
-    ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-    child: OutlinedButton(
-    onPressed: () {},
-    child: const Text('This Week'),
-    ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-    child: OutlinedButton(
-    onPressed: () {},
-    child: const Text('This Month'),
-    ),
-    ),
-    ],
-    ),
-    const SizedBox(height: 16),
-    Container(
-    padding: const EdgeInsets.all(12.0),
-    decoration: BoxDecoration(
-    color: Colors.grey[100],
-    borderRadius: BorderRadius.circular(8.0),
-    ),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    const Text('Specific Date Range',
-    style: TextStyle(
-    fontSize: 12, fontWeight: FontWeight.w500)),
-    const SizedBox(height: 8),
-    Row(
-    children: [
-    Expanded(
-    child: TextField(
-    decoration: const InputDecoration(
-    hintText: 'Start Date',
-    prefixIcon: Icon(Remix.calendar_line,
-    color: Colors.grey, size: 16),
-    ),
-    style: const TextStyle(fontSize: 12),
-    ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-    child: TextField(
-    decoration: const InputDecoration(
-    hintText: 'End Date',
-    prefixIcon: Icon(Remix.calendar_line,
-    color: Colors.grey, size: 16),
-    ),
-    style: const TextStyle(fontSize: 12),
-    ),
-    ),
-    ],
-    ),
-    ],
-    ),
-    ),
-    const SizedBox(height: 24),
-
-    // Budget Filter
-                  const Text('Budget Range (per hour)',
-                      style:
-                      TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  const Slider(
-                    value: 150,
-                    min: 50,
-                    max: 300,
-                    divisions: 250,
-                    label: '\$150',
-                    onChanged: null,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text('\$50',
-                          style: TextStyle(fontSize: 10, color: Colors.grey)),
-                      Text('\$150',
-                          style: TextStyle(fontSize: 10, color: Colors.grey)),
-                      Text('\$300+',
-                          style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Min',
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8.0),
-                                borderSide: BorderSide.none),
-                          ),
-                          style: const TextStyle(fontSize: 12),
-                          controller: TextEditingController(text: '\$50'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Max',
-                            filled: true,
-                            fillColor: Colors.grey[100],
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8.0),
-                                borderSide: BorderSide.none),
-                          ),
-                          style: const TextStyle(fontSize: 12),
-                          controller: TextEditingController(text: '\$150'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Action Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {},
-                          child: const Text('Reset'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {},
-                          child: const Text('Apply Filters'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            SvgIcon(
+              iconName: icon,
+              size: 16,
+              color: isActive ? Colors.white : Colors.black87,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isActive ? Colors.white : Colors.black87,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCheckboxFilter({
-    required String label,
-    required bool value,
-    required ValueChanged<bool?> onChanged,
-  }) {
-    return InkWell(
-      onTap: () {
-        onChanged(!value);
-      },
-      child: Row(
-        children: [
-          SizedBox(
-            width: 24,
-            height: 24,
-            child: Checkbox(
-              value: value,
-              onChanged: onChanged,
-              activeColor: const Color(0xFFbad012),
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
+          ],
+        ),
       ),
     );
   }

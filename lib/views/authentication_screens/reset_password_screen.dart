@@ -123,7 +123,7 @@ class _RecoverPasswordScreenState extends State<ResetPasswordScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Send Reset Link', style: TextStyle(fontSize: 16, color: Colors.white)),
+                      : const Text('Send Reset Link', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white,fontSize: 16, )),
                 ),
               ),
               const SizedBox(height: 16),

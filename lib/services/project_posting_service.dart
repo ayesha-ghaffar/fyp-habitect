@@ -117,17 +117,19 @@ class ProjectPostingService {
   // Bid related methods
   Future<String> createBid(Bid bid) async {
     try {
-      // Add bid to bids collection
+      // Add bid to main bids collection with complete data
       final bidRef = _database.child('bids').push();
       final bidId = bidRef.key!;
 
       final bidWithId = bid.copyWith(id: bidId);
-      await bidRef.set(bidWithId.toMap());
+      final completeBidData = bidWithId.toMap();
 
-      // Also add bid to project's bids
+      await bidRef.set(completeBidData);
+
+      // IMPORTANT: Add COMPLETE bid data to project's bids (not partial)
       await _database
           .child('projects/${bid.projectId}/bids/$bidId')
-          .set(bidWithId.toMap());
+          .set(completeBidData); // Use complete data, not partial
 
       // Create notification for the project owner
       final project = await getProject(bid.projectId);
@@ -167,6 +169,8 @@ class ProjectPostingService {
 
   Future<List<Bid>> getBidsByArchitect(String architectId) async {
     try {
+      print('Fetching bids for architect: $architectId');
+
       final query = _database
           .child('bids')
           .orderByChild('architectId')
@@ -175,15 +179,38 @@ class ProjectPostingService {
       final snapshot = await query.get();
       final List<Bid> bids = [];
 
+      print('Query snapshot exists: ${snapshot.exists}');
+
       if (snapshot.exists) {
-        final data = Map<String, dynamic>.from(snapshot.value as Map);
-        data.forEach((key, value) {
-          bids.add(Bid.fromMap(Map<String, dynamic>.from(value), key));
-        });
+        // Handle the case where snapshot.value might be null
+        final value = snapshot.value;
+        if (value != null) {
+          final data = Map<String, dynamic>.from(value as Map);
+          print('Found ${data.length} bid entries');
+
+          data.forEach((key, value) {
+            try {
+              final bidData = Map<String, dynamic>.from(value as Map);
+              print('Processing bid with key: $key, data: $bidData');
+
+              // Ensure all required fields are present with defaults if needed
+              final bid = Bid.fromMap(bidData, key);
+              bids.add(bid);
+              print('Successfully added bid: ${bid.id}');
+            } catch (e) {
+              print('Error parsing bid with key $key: $e');
+              print('Bid data: $value');
+            }
+          });
+        }
+      } else {
+        print('No bids found for architect: $architectId');
       }
 
+      print('Total bids loaded: ${bids.length}');
       return bids;
     } catch (e) {
+      print('Error in getBidsByArchitect: $e');
       throw Exception('Failed to get architect bids: $e');
     }
   }

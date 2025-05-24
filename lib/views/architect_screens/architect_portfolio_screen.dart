@@ -23,7 +23,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
-  String _specialty = "residential";
+  String _specialty = "modern";
   File? _profileImage;
   File? _coverImage;
   bool _isToastVisible = false;
@@ -47,6 +47,19 @@ class _PortfolioPageState extends State<PortfolioPage> {
     super.dispose();
   }
 
+  Map<String, dynamic> _convertToStringMap(dynamic data) {
+    if (data == null) return {};
+
+    if (data is Map<String, dynamic>) {
+      return data;
+    } else if (data is Map) {
+      // Convert Map<Object?, Object?> to Map<String, dynamic>
+      return data.map((key, value) => MapEntry(key.toString(), value));
+    }
+
+    return {};
+  }
+
   Future<void> _loadUserData() async {
     try {
       // First get user's name from users collection
@@ -59,9 +72,10 @@ class _PortfolioPageState extends State<PortfolioPage> {
             .get();
 
         if (userSnapshot.exists) {
-          final userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+          // Use safe type conversion
+          final userData = _convertToStringMap(userSnapshot.value);
           setState(() {
-            _userName = userData['name'] ?? '';
+            _userName = userData['name']?.toString() ?? '';
           });
         }
       }
@@ -77,10 +91,8 @@ class _PortfolioPageState extends State<PortfolioPage> {
           _locationController.text = profile.location;
           _bioController.text = profile.bio;
           _specialty = profile.specialty;
-          _certifications = profile.certifications;
-          _projects = profile.projects;
-          // Note: profileImage and coverImage are not loaded from Firebase yet
-          // You'll need to implement image loading separately
+          _certifications = List.from(profile.certifications); // Create new list instances
+          _projects = List.from(profile.projects);
         });
       } else {
         // Set default name for new portfolio
@@ -90,6 +102,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
       }
     } catch (e) {
       _showToast("Error loading data: $e");
+      print('Error in _loadUserData: $e'); // For debugging
     }
   }
 
@@ -152,7 +165,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
       case "accessible":
         return "Accessible/Inclusive Design";
       default:
-        return "Residential Architecture";
+        return "Modern Housing";
     }
   }
 
