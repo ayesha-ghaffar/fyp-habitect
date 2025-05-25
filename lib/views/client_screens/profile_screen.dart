@@ -1,11 +1,9 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
-
 import '../../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -59,23 +57,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
-    print('🔍 DEBUG: Starting _loadProfile');
+    print('------DEBUG: Starting _loadProfile');
     if (user == null) {
-      print('❌ DEBUG: User is null');
+      print('------DEBUG: User is null');
       return;
     }
 
-    print('✅ DEBUG: User found - UID: ${user!.uid}');
+    print('------DEBUG: User found - UID: ${user!.uid}');
     setState(() => isLoading = true);
 
     try {
-      print('📡 DEBUG: Fetching data from Firebase...');
+      print('------DEBUG: Fetching data from Firebase...');
       final snapshot = await databaseRef.child('users/${user!.uid}').get();
 
       if (snapshot.exists) {
-        print('✅ DEBUG: Data exists in Firebase');
+        print('------DEBUG: Data exists in Firebase');
         final data = Map<String, dynamic>.from(snapshot.value as Map<dynamic, dynamic>);
-        print('📊 DEBUG: Retrieved data: $data');
+        print('-------DEBUG: Retrieved data: $data');
 
         setState(() {
           name = data['name']?.toString() ?? '';
@@ -95,19 +93,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           marketingNotify = notifications['marketing'] ?? false;
         });
 
-        print('✅ DEBUG: State updated with Firebase data');
+        print('------DEBUG: State updated with Firebase data');
       } else {
-        print('⚠️ DEBUG: No data exists for this user in Firebase');
+        print('-------DEBUG: No data exists for this user in Firebase');
         setState(() {
           name = user!.displayName ?? '';
         });
       }
 
       email = user!.email ?? '';
-      print('📧 DEBUG: Email from Auth: $email');
+      print('------DEBUG: Email from Auth: $email');
 
     } catch (e) {
-      print('❌ DEBUG: Error loading profile: $e');
+      print('------DEBUG: Error loading profile: $e');
       setState(() {
         errorMessage = 'Failed to load profile: $e';
       });
@@ -151,11 +149,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // FIXED: Enhanced _savePersonalInfo with better validation
   Future<void> _savePersonalInfo() async {
-    print('💾 DEBUG: Starting _savePersonalInfo');
+    print('------DEBUG: Starting _savePersonalInfo');
 
-    // Manual validation instead of relying on form validation
     List<String> errors = [];
 
     if (name.trim().isEmpty) {
@@ -167,10 +163,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (phone.trim().isEmpty) {
       errors.add('Phone Number is required');
     }
-
-    // Show specific error messages
     if (errors.isNotEmpty) {
-      print('❌ DEBUG: Validation failed: ${errors.join(', ')}');
+      print('------DEBUG: Validation failed: ${errors.join(', ')}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errors.first),
@@ -183,14 +177,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Check if user exists
     if (user == null) {
-      print('❌ DEBUG: User is null during save');
+      print('------DEBUG: User is null during save');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User not authenticated')),
       );
       return;
     }
 
-    print('📝 DEBUG: Saving data: name=$name, username=$username, phone=$phone, gender=$gender');
+    print('------DEBUG: Saving data: name=$name, username=$username, phone=$phone, gender=$gender');
 
     setState(() {
       isLoading = true;
@@ -209,16 +203,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'updatedAt': DateTime.now().millisecondsSinceEpoch,
       };
 
-      print('📤 DEBUG: Data to save: $dataToSave');
+      print('------DEBUG: Data to save: $dataToSave');
 
-      // Save to Firebase Realtime Database
       await databaseRef.child('users/${user!.uid}').update(dataToSave);
-      print('✅ DEBUG: Data saved to Firebase successfully');
+      print('------DEBUG: Data saved to Firebase successfully');
 
       // Update display name in Firebase Authentication if changed
       if (user!.displayName != name.trim()) {
         await user!.updateDisplayName(name.trim());
-        print('✅ DEBUG: Display name updated in Auth');
+        print('------DEBUG: Display name updated in Auth');
       }
 
       // Update UI state
@@ -240,13 +233,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
 
-      print('✅ DEBUG: Success message shown');
+      print('------DEBUG: Success message shown');
 
       // Reload profile to confirm changes
       await _loadProfile();
 
     } catch (e) {
-      print('❌ DEBUG: Error saving personal info: $e');
+      print('------DEBUG: Error saving personal info: $e');
 
       setState(() {
         isLoading = false;
@@ -266,9 +259,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // FIXED: Enhanced _changePassword with better error handling
+
+  //Method to change password
   Future<void> _changePassword() async {
-    print('🔐 DEBUG: Starting _changePassword');
+    print('------DEBUG: Starting _changePassword');
 
     if (_currentPasswordController.text.isEmpty ||
         _newPasswordController.text.isEmpty ||
@@ -302,11 +296,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       // Re-authenticate user before changing password
-      print('🔒 DEBUG: Re-authenticating user...');
+      print('------DEBUG: Re-authenticating user...');
       bool success = await _reAuthenticateUser();
 
       if (success) {
-        print('✅ DEBUG: Re-authentication successful, changing password...');
+        print('-------DEBUG: Re-authentication successful, changing password...');
         await user!.updatePassword(_newPasswordController.text);
 
         // Clear password fields
@@ -328,16 +322,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         }
 
-        print('✅ DEBUG: Password changed successfully');
+        print('--------DEBUG: Password changed successfully');
       } else {
-        print('❌ DEBUG: Re-authentication failed');
+        print('--------DEBUG: Re-authentication failed');
         setState(() {
           errorMessage = 'Password change failed: Please enter the correct current password.';
         });
       }
 
     } catch (e) {
-      print('❌ DEBUG: Error changing password: $e');
+      print('-------DEBUG: Error changing password: $e');
       setState(() {
         errorMessage = 'Failed to update password: $e';
       });
@@ -358,9 +352,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // FIXED: Enhanced _saveNotificationSettings
+  //Method to save notification settings
   Future<void> _saveNotificationSettings() async {
-    print('🔔 DEBUG: Saving notification settings');
+    print('------DEBUG: Saving notification settings');
 
     setState(() {
       isLoading = true;
@@ -392,10 +386,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
 
-      print('✅ DEBUG: Notification settings saved successfully');
+      print('------DEBUG: Notification settings saved successfully');
 
     } catch (e) {
-      print('❌ DEBUG: Error saving notifications: $e');
+      print('-------DEBUG: Error saving notifications: $e');
       setState(() {
         isLoading = false;
         loadingText = '';
@@ -585,9 +579,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // FIXED: Enhanced re-authentication
+  //Method to re-authenticate
   Future<bool> _reAuthenticateUser() async {
-    print('🔐 DEBUG: Starting re-authentication');
+    print('------DEBUG: Starting re-authentication');
     final formKey = GlobalKey<FormState>();
     String? password;
     bool result = false;
@@ -616,7 +610,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              print('❌ DEBUG: Re-authentication cancelled');
+              print('-------DEBUG: Re-authentication cancelled');
               Navigator.of(context).pop();
             },
             child: const Text('Cancel'),
@@ -625,17 +619,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               if (formKey.currentState?.validate() ?? false) {
                 try {
-                  print('🔒 DEBUG: Attempting re-authentication...');
+                  print('-------DEBUG: Attempting re-authentication...');
                   final credential = EmailAuthProvider.credential(
                     email: user!.email!,
                     password: password!,
                   );
                   await user!.reauthenticateWithCredential(credential);
                   result = true;
-                  print('✅ DEBUG: Re-authentication successful');
+                  print('------DEBUG: Re-authentication successful');
                   Navigator.of(context).pop();
                 } on FirebaseAuthException catch (e) {
-                  print("❌ DEBUG: Re-authentication error: ${e.message}");
+                  print("-------DEBUG: Re-authentication error: ${e.message}");
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Authentication failed: ${e.message}'),
@@ -771,7 +765,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 fontWeight: FontWeight.bold)),
                         TextButton(
                           onPressed: () async {
-                            print('🔄 DEBUG: Edit/Save button pressed. isEditingPersonalInfo: $isEditingPersonalInfo');
+                            print('------DEBUG: Edit/Save button pressed. isEditingPersonalInfo: $isEditingPersonalInfo');
                             if (isEditingPersonalInfo) {
                               await _savePersonalInfo();
                             } else {
@@ -779,7 +773,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 isEditingPersonalInfo = true;
                                 formChanged = false;
                               });
-                              print('✅ DEBUG: Editing mode enabled');
+                              print('-------DEBUG: Editing mode enabled');
                             }
                           },
                           child: Text(
@@ -887,7 +881,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         TextButton(
                           onPressed: () async {
-                            print('🔐 DEBUG: Password Edit/Save button pressed. isEditingPassword: $isEditingPassword');
+                            print('--------DEBUG: Password Edit/Save button pressed. isEditingPassword: $isEditingPassword');
                             if (isEditingPassword) {
                               await _changePassword();
                             } else {
@@ -895,7 +889,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 isEditingPassword = true;
                                 formChanged = false;
                               });
-                              print('✅ DEBUG: Password editing mode enabled');
+                              print('--------DEBUG: Password editing mode enabled');
                             }
                           },
                           child: Text(

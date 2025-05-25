@@ -1,15 +1,13 @@
-// lib/views/authentication_screens/register_screen.dart
 import 'dart:io';
-import 'package:flutter/material.dart'; // IMPORTANT: This imports most common Flutter widgets and types
+import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_database/firebase_database.dart'; // For ServerValue.timestamp
-
-import 'package:fyp/models/user_model.dart'; // UPDATED IMPORT
+import 'package:firebase_database/firebase_database.dart';
+import 'package:fyp/models/user_model.dart';
 import 'package:fyp/services/auth_service.dart';
-import 'package:fyp/services/user_service.dart'; // ADDED THIS IMPORT
+import 'package:fyp/services/user_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -18,11 +16,10 @@ class RegisterScreen extends StatefulWidget {
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 
-// FIX: Added the class name '_RegisterScreenState'
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
-  late UserService _userService; // Declare UserService
+  late UserService _userService;
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -33,17 +30,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _dobController = TextEditingController();
 
   String _userType = 'client';
-  String _selectedGender = 'male'; // Default gender selection
+  String _selectedGender = 'male';
   bool _passwordVisible = false;
   bool _isLoading = false;
   String? _errorMessage;
   DateTime? _selectedDate;
-  File? _profileImage; // Local file path for the picked image
+  File? _profileImage;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Initialize UserService here, after context is available
     _userService = Provider.of<UserService>(context, listen: false);
   }
 
@@ -82,15 +78,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (value == null || value.isEmpty) {
       return 'Phone number is required';
     }
-    // Added a check for +92 at the beginning and proper length for Pakistani numbers
     if (!value.startsWith('+92') || !RegExp(r'^\+923\d{9}$').hasMatch(value)) {
       return 'Enter a valid Pakistani phone number (e.g., +923xxxxxxxxx)';
     }
     return null;
   }
 
-
-  // Convert string to Gender enum
   Gender getGenderEnum(String genderString) {
     switch (genderString) {
       case 'male':
@@ -102,6 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  //Method to pick image
   Future<void> pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -112,6 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  //Method to select date
   Future<void> _selectDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
@@ -128,6 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  //Method to register user
   void register() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -149,24 +145,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     UserType selectedUserType = _userType == 'client' ? UserType.client : UserType.architect;
 
     UserModel newUser = UserModel(
-      uid: '', // Will be updated after Firebase Auth registration
+      uid: '',
       name: fullName,
       username: _usernameController.text.trim(),
       email: _emailController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       dateOfBirth: _selectedDate!,
       gender: getGenderEnum(_selectedGender),
-      avatarUrl: '', // Not storing to Firebase Storage for now
+      avatarUrl: '',
       notifications: NotificationPreferences(email: true, push: true, sms: false, marketing: false),
-      userType: selectedUserType, // Use the enum
-      createdAt: ServerValue.timestamp, // Set timestamp on creation
-      updatedAt: ServerValue.timestamp, // Set timestamp on creation
-      lastActive: ServerValue.timestamp, // Set timestamp on creation
-      isOnline: false, // Default to false, will be set true on login
+      userType: selectedUserType,
+      createdAt: ServerValue.timestamp,
+      updatedAt: ServerValue.timestamp,
+      lastActive: ServerValue.timestamp,
+      isOnline: false,
     );
 
     try {
-      // 1. Register with Firebase Authentication
+      // Register with Firebase Authentication
       String? authError = await _authService.registerUser(newUser, _passwordController.text.trim());
 
       if (authError != null) {
@@ -176,33 +172,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
         });
         return;
       }
-
-      // Get the UID from the newly registered user
       String? uid = _authService.currentUser?.uid;
       if (uid == null) {
         throw Exception("Registration failed: User UID not found after authentication.");
       }
 
-      // 2. Create/Update User Profile in Realtime Database using UserService
-      // Only update the UID, avatarUrl remains empty string for now.
+      // Create/Update User Profile in Realtime Database using UserService
       UserModel finalUser = newUser.copyWith(
         uid: uid,
       );
+      // Save the user data
+      await _userService.createUserProfile(finalUser);
 
-      await _userService.createUserProfile(finalUser); // This will save the user data including empty avatarUrl
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Registration successful! Please log in.")),
-      );
-      Navigator.pushReplacementNamed(context, '/login');
-    } catch (e) {
+      //ScaffoldMessenger.of(context).showSnackBar(
+       // const SnackBar(content: Text("Registration successful! Please log in.")),
+      //);
+      Navigator.pushReplacementNamed(context, '/email-verification');
+    }
+    catch (e) {
       setState(() {
         _errorMessage = e.toString().contains("network")
             ? "Network error. Please check your internet connection."
             : "Registration failed: $e";
         _isLoading = false;
       });
-      print("Registration error: $e"); // Log the full error
+      print("Registration error: $e");
     }
   }
 

@@ -30,6 +30,7 @@ import 'views/client_screens/track_project_screen.dart';
 import 'views/client_screens/view_3d_model_screen.dart';
 import 'views/client_screens/payments_screen.dart';
 import 'views/client_screens/transaction_history_screen.dart';
+import 'views/authentication_screens/email_verification_screen.dart';
 
 
 void main() async {
@@ -43,10 +44,8 @@ void main() async {
     print('Firebase initialized successfully.');
   } catch (e) {
     print('Error initializing Firebase: $e');
-    // Consider adding a graceful error display or retry mechanism here
   }
 
-  // Run the app, providing the services using MultiProvider
   runApp(
     MultiProvider(
       providers: [
@@ -77,7 +76,7 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver { // Added WidgetsBindingObserver
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
@@ -93,13 +92,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver { // Added Wi
     super.dispose();
   }
 
-  // Handle app lifecycle changes (e.g., app goes to background/foreground)
+  //Method to Handle app lifecycle changes (e.g., app goes to background/foreground)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final userService = Provider.of<UserService>(context, listen: false);
     final currentUser = _auth.currentUser;
 
-    if (currentUser == null) return; // Only update if user is logged in
+    if (currentUser == null) return;
 
     if (state == AppLifecycleState.resumed) {
       // App is in foreground, set user online
@@ -183,6 +182,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver { // Added Wi
         '/view-3d-model':(context) => View3DModelScreen(),
         '/payments':(context) => PaymentsScreen(),
         '/transaction-history':(context) => TransactionHistoryScreen(),
+        '/email-verification':(context) => EmailVerificationScreen(),
       },
     );
   }
