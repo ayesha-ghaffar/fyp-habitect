@@ -1,4 +1,3 @@
-// lib/models/bid_model.dart
 import 'package:flutter/material.dart';
 
 enum BidStatus {

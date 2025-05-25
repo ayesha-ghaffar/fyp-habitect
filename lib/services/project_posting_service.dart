@@ -215,6 +215,40 @@ class ProjectPostingService {
     }
   }
 
+  // New method to update the status of a bid
+  Future<void> updateBidStatus(String bidId, BidStatus newStatus) async {
+    try {
+      // First, get the bid to find its projectId
+      final bidSnapshot = await _database.child('bids/$bidId').get();
+      if (!bidSnapshot.exists || bidSnapshot.value == null) {
+        throw Exception('Bid with ID $bidId not found.');
+      }
+
+      final bidData = Map<String, dynamic>.from(bidSnapshot.value as Map);
+      final String projectId = bidData['projectId'];
+
+      // Update status in the main 'bids' collection
+      await _database.child('bids/$bidId').update({'status': newStatus.name});
+
+      // Update status in the project's nested 'bids' collection
+      await _database.child('projects/$projectId/bids/$bidId').update({'status': newStatus.name});
+
+      // Optional: Create a notification for the architect whose bid status changed
+      // You would need to fetch the architect's ID from the bidData
+      // and then call createNotification for them.
+      // For example:
+      // final String architectId = bidData['architectId'];
+      // await createNotification(
+      //   userId: architectId,
+      //   message: 'Your bid for project "$projectId" has been ${newStatus.name}!',
+      // );
+
+    } catch (e) {
+      throw Exception('Failed to update bid status: $e');
+    }
+  }
+
+
   // User related methods (compatible with your existing UserModel)
   Future<void> createUser(UserModel user) async {
     try {
@@ -256,7 +290,7 @@ class ProjectPostingService {
   }
 
   // Check if user is a client (helper method for project posting)
-  Future<bool> isUserClient(String userId) async {
+  Future<bool> canUserPostProject(String userId) async {
     try {
       final user = await getUser(userId);
       return user?.userType == UserType.client;
@@ -383,17 +417,6 @@ class ProjectPostingService {
 
       return notifications;
     });
-  }
-
-  // Project validation helper
-  Future<bool> canUserPostProject(String userId) async {
-    try {
-      final user = await getUser(userId);
-      // Only clients can post projects
-      return user?.userType == UserType.client;
-    } catch (e) {
-      return false;
-    }
   }
 
   // Get projects with user details (for displaying project lists)

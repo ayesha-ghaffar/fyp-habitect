@@ -4,6 +4,7 @@ import 'client_home_screen.dart';
 import 'uploaded_projects_screen.dart';
 import 'profile_screen.dart';
 import 'search_architects_screen.dart';
+import 'chat_list_screen.dart';
 
 // Main container widget that manages navigation for client
 class ClientDashboard extends StatefulWidget {
@@ -22,7 +23,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
     const ClientHomeScreen(),     // Index 0: Home
     const SearchArchitects(),         // Index 1: Search
     const UploadedProjectsScreen(), // Index 2: Projects
-    const ClientHomeScreen(),     // Index 3: Messages (placeholder)
+    const ChatListScreen(),     // Index 3: Messages (placeholder)
     const ProfileScreen(),        // Index 4: Profile
   ];
 

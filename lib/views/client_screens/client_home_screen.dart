@@ -145,7 +145,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             ),
             const SizedBox(height: 15),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () => Navigator.pushNamed(context, '/post-project'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFF4EBD0),
                 shape: RoundedRectangleBorder(
@@ -223,7 +223,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             onPressed: () {
               final navState = ClientNavigationStateWidget.of(context);
               if (navState != null) {
-                navState.updateSelectedIndex(2);
+                navState.updateSelectedIndex(3);
               }
             },
           ),
@@ -234,7 +234,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             onPressed: () {
               final navState = ClientNavigationStateWidget.of(context);
               if (navState != null) {
-                navState.updateSelectedIndex(1);
+                navState.updateSelectedIndex(2);
               }
             },
           ),
@@ -332,7 +332,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         'onTap': () {
           final navState = ClientNavigationStateWidget.of(context);
           if (navState != null) {
-            navState.updateSelectedIndex(3);
+            navState.updateSelectedIndex(4);
           }
         },
       },

@@ -1,4 +1,3 @@
-// lib/screens/project_details_screen.dart
 import 'package:flutter/material.dart';
 import 'package:fyp/models/project_model.dart';
 import 'package:fyp/services/project_posting_service.dart';
@@ -34,17 +33,20 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Define the primary color based on the provided green
+    const Color primaryGreen = Color(0xFF6B8E23);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Project Details', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF2C3E50), // Dark blue/grey
+        backgroundColor: primaryGreen, // Applied new green color
         iconTheme: const IconThemeData(color: Colors.white), // White back arrow
       ),
       body: FutureBuilder<Project?>(
         future: _projectDetailsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator(color: const Color(0xFF3498DB)));
+            return const Center(child: CircularProgressIndicator(color: primaryGreen)); // Applied new green color
           } else if (snapshot.hasError) {
             return Center(
               child: Text(
@@ -79,7 +81,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                         style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF2C3E50),
+                          color: Color(0xFF2C3E50), // Keeping this as a dark text color
                         ),
                       ),
                       const Divider(height: 30, thickness: 1),
@@ -113,7 +115,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                         icon: Icons.info_outline,
                         label: 'Status',
                         value: project.status.toUpperCase(),
-                        valueColor: project.status == 'open' ? const Color(0xFF2ECC71) : Colors.orange,
+                        valueColor: project.status == 'open' ? primaryGreen : Colors.orange, // Status color adjusted
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -168,7 +170,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3498DB),
+                            backgroundColor: primaryGreen, // Applied new green color
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -193,12 +195,15 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     required String value,
     Color valueColor = Colors.black87,
   }) {
+    // Define the primary color based on the provided green
+    const Color primaryGreen = Color(0xFF6B8E23);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFF3498DB), size: 20),
+          Icon(icon, color: primaryGreen, size: 20), // Applied new green color
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
