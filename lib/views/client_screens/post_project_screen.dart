@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // Import for TextInputFormatter
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fyp/services/project_posting_service.dart';
@@ -30,6 +30,9 @@ class _PostProjectState extends State<PostProject> {
   DateTime? endDate;
   int characterCount = 0;
   bool isSubmitting = false;
+
+  // Add a GlobalKey for the form
+  final _formKey = GlobalKey<FormState>();
 
   final ProjectPostingService _projectPostingService = ProjectPostingService();
 
@@ -128,18 +131,20 @@ class _PostProjectState extends State<PostProject> {
 
   Future<void> submitProject() async {
     // Validate form inputs
+    if (!_formKey.currentState!.validate()) {
+      // If the form is invalid, show an error message for missing required fields
+      if (selectedProjectType == null) {
+        showErrorMessage('Please select a project type');
+      }
+      if (startDate == null) {
+        showErrorMessage('Please select a start date');
+      }
+      return;
+    }
+
+    // Additional validation for project type and start date
     if (selectedProjectType == null) {
       showErrorMessage('Please select a project type');
-      return;
-    }
-
-    if (budgetController.text.isEmpty) {
-      showErrorMessage('Please enter your budget');
-      return;
-    }
-
-    if (locationController.text.isEmpty) {
-      showErrorMessage('Please enter project location');
       return;
     }
 
@@ -239,7 +244,7 @@ class _PostProjectState extends State<PostProject> {
                 builder: (context) => AlertDialog(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Text('Post Project Help'),
-                  content: const Text('Fill in the form to find architects for your project. The more details you provide, the better matches you\'ll receive.'),
+                  content: const Text('Fill in the details below to help architects understand your vision better. The more details you provide, the better matches you\'ll receive.'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
@@ -257,28 +262,31 @@ class _PostProjectState extends State<PostProject> {
         onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildInfoCard(),
-              const SizedBox(height: 24),
-              _buildProjectTitleSection(),
-              const SizedBox(height: 24),
-              _buildProjectTypeSection(),
-              const SizedBox(height: 24),
-              _buildBudgetSection(),
-              const SizedBox(height: 24),
-              _buildTimelineSection(),
-              const SizedBox(height: 24),
-              _buildLocationSection(),
-              const SizedBox(height: 24),
-              _buildLayoutPreferencesSection(),
-              const SizedBox(height: 24),
-              _buildNotesSection(),
-              const SizedBox(height: 32),
-              _buildSubmitButton(),
-              const SizedBox(height: 40),
-            ],
+          child: Form( // Wrap with Form widget
+            key: _formKey, // Assign the form key
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoCard(),
+                const SizedBox(height: 24),
+                _buildProjectTitleSection(),
+                const SizedBox(height: 24),
+                _buildProjectTypeSection(),
+                const SizedBox(height: 24),
+                _buildBudgetSection(),
+                const SizedBox(height: 24),
+                _buildTimelineSection(),
+                const SizedBox(height: 24),
+                _buildLocationSection(),
+                const SizedBox(height: 24),
+                _buildLayoutPreferencesSection(),
+                const SizedBox(height: 24),
+                _buildNotesSection(),
+                const SizedBox(height: 32),
+                _buildSubmitButton(),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),
@@ -403,6 +411,7 @@ class _PostProjectState extends State<PostProject> {
           ],
         ),
         const SizedBox(height: 12),
+        // No direct validator for GridView, validation will be handled in submitProject
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
@@ -501,11 +510,14 @@ class _PostProjectState extends State<PostProject> {
         TextFormField(
           controller: budgetController,
           enabled: !isSubmitting,
-          keyboardType: TextInputType.text,
+          keyboardType: TextInputType.number, // Set keyboard type to number
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly, // Allow only digits
+          ],
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
-            hintText: 'e.g., \$50,000 - \$100,000',
+            hintText: 'e.g., 50000-100000 (numeric only)',
             hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -522,6 +534,13 @@ class _PostProjectState extends State<PostProject> {
             prefixIcon: Icon(Icons.attach_money, color: darkGreen), // Using dark green for icon
             contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your budget';
+            }
+            // Optional: Add more complex budget validation (e.g., numeric range, format)
+            return null;
+          },
         ),
       ],
     );
@@ -561,6 +580,7 @@ class _PostProjectState extends State<PostProject> {
                 value: startDate,
                 onTap: () => _selectDate(context, true),
                 isRequired: true,
+                errorText: startDate == null ? 'Please select a start date' : null, // Pass error text
               ),
             ),
             const SizedBox(width: 16),
@@ -570,6 +590,7 @@ class _PostProjectState extends State<PostProject> {
                 value: endDate,
                 onTap: () => _selectDate(context, false),
                 isRequired: false,
+                errorText: null, // No error text for optional end date
               ),
             ),
           ],
@@ -583,6 +604,7 @@ class _PostProjectState extends State<PostProject> {
     required DateTime? value,
     required VoidCallback onTap,
     required bool isRequired,
+    String? errorText, // Added errorText parameter
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,7 +625,9 @@ class _PostProjectState extends State<PostProject> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(
+                color: errorText != null ? Colors.red.shade600 : Colors.grey.shade300, // Show red border on error
+              ),
             ),
             child: Row(
               children: [
@@ -624,6 +648,14 @@ class _PostProjectState extends State<PostProject> {
             ),
           ),
         ),
+        if (errorText != null) // Display error text if present
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, left: 12.0),
+            child: Text(
+              errorText,
+              style: TextStyle(color: Colors.red.shade600, fontSize: 12),
+            ),
+          ),
       ],
     );
   }
@@ -720,6 +752,12 @@ class _PostProjectState extends State<PostProject> {
             prefixIcon: Icon(Icons.location_on, color: darkGreen), // Using dark green for location icon
             contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter project location';
+            }
+            return null;
+          },
         ),
       ],
     );

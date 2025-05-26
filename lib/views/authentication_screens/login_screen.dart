@@ -1,10 +1,9 @@
-// lib/views/authentication_screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
-import 'package:provider/provider.dart'; // <<< ADD THIS IMPORT
-import 'package:fyp/models/user_model.dart'; // <<< UPDATED IMPORT
+import 'package:provider/provider.dart';
+import 'package:fyp/models/user_model.dart';
 import 'package:fyp/services/auth_service.dart';
-import 'package:fyp/services/user_service.dart'; // <<< ADD THIS IMPORT
+import 'package:fyp/services/user_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,6 +29,11 @@ class _LoginScreenState extends State<LoginScreen> {
       errorMessage = null;
     });
 
+    bool validatePassword(String password) {
+      final regex = RegExp(r'^(?=.*[A-Z])(?=.*\d).{6,}$');
+      return regex.hasMatch(password);
+    }
+
     // Use the AuthService to log in
     UserModel? user = await _authService.loginUser(
       _emailController.text.trim(),
@@ -44,9 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
       // Access UserService via Provider
       final userService = Provider.of<UserService>(context, listen: false);
 
-      // Update user's online status immediately upon successful login
-      // (This is also handled by the authStateChanges listener in main.dart,
-      // but explicitly setting it here can ensure immediate reflection).
       await userService.updateOnlineStatus(true);
       print('User ${user.uid} logged in and online status set.');
 
@@ -142,10 +143,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[600]),
                   ),
-                  validator: (value) => EmailValidator.validate(value ?? '')
-                      ? null
-                      : 'Enter a valid email',
-                ),
+                    validator: (val) {
+                      if (val == null || val.isEmpty) return 'Email is required';
+                      if (!EmailValidator.validate(val)) return 'Enter valid email format';
+
+                      String localPart = val.split('@')[0];
+                      if (localPart.length < 3) return 'Username part must be at least 3 characters';
+
+                      // Validate email cannot start from a number
+                      if (RegExp(r'^\d').hasMatch(localPart)) {
+                        return 'Email cannot start with a number.';
+                      }
+
+                      // Check if local part contains only numbers
+                      if (RegExp(r'^\d+$').hasMatch(localPart)) return 'Username cannot contain only numbers';
+
+                      return null;
+                    },
                 const SizedBox(height: 16),
                 // Password Field
                 Align(
@@ -194,9 +208,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                   ),
-                  validator: (value) => value != null && value.length >= 6
+                  validator: (val) => val != null && validatePassword(val)
                       ? null
-                      : 'Password must be at least 6 characters',
+                      : 'Min 6 chars, 1 digit, 1 uppercase',
                 ),
                 const SizedBox(height: 16),
                 // Forgot Password Link

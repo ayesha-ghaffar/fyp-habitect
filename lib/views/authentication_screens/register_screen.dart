@@ -184,9 +184,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Save the user data
       await _userService.createUserProfile(finalUser);
 
-      //ScaffoldMessenger.of(context).showSnackBar(
-       // const SnackBar(content: Text("Registration successful! Please log in.")),
-      //);
       Navigator.pushReplacementNamed(context, '/email-verification');
     }
     catch (e) {
@@ -603,6 +600,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     String localPart = val.split('@')[0];
                     if (localPart.length < 3) return 'Username part must be at least 3 characters';
+
+                    // Validate email cannot start from a number
+                    if (RegExp(r'^\d').hasMatch(localPart)) {
+                      return 'Email cannot start with a number.';
+                    }
 
                     // Check if local part contains only numbers
                     if (RegExp(r'^\d+$').hasMatch(localPart)) return 'Username cannot contain only numbers';
