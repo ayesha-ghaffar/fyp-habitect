@@ -28,12 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
       isLoading = true;
       errorMessage = null;
     });
-
-    bool validatePassword(String password) {
-      final regex = RegExp(r'^(?=.*[A-Z])(?=.*\d).{6,}$');
-      return regex.hasMatch(password);
-    }
-
     // Use the AuthService to log in
     UserModel? user = await _authService.loginUser(
       _emailController.text.trim(),
@@ -69,6 +63,10 @@ class _LoginScreenState extends State<LoginScreen> {
         errorMessage = "Invalid login credentials. Please check your email and password.";
       });
     }
+  }
+  bool validatePassword(String password) {
+    final regex = RegExp(r'^(?=.*[A-Z])(?=.*\d).{6,}$');
+    return regex.hasMatch(password);
   }
 
   @override
@@ -160,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       return null;
                     },
+                ),
                 const SizedBox(height: 16),
                 // Password Field
                 Align(
