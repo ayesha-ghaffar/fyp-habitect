@@ -1,15 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fyp/views/svg_icon.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fyp/services/cloudinary_service.dart';
 import 'edit_portfolio_screen.dart';
 import 'package:fyp/models/portfolio_model.dart';
 import 'package:provider/provider.dart';
 import 'package:fyp/services/portfolio_viewmodel.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 
 class PortfolioPage extends StatefulWidget {
-  const PortfolioPage({Key? key}) : super(key: key);
+  final VoidCallback? onRefreshNeeded;
+
+  const PortfolioPage({Key? key, this.onRefreshNeeded}) : super(key: key);
+
+  @override
 
   @override
   _PortfolioPageState createState() => _PortfolioPageState();
@@ -18,6 +24,8 @@ class PortfolioPage extends StatefulWidget {
 class _PortfolioPageState extends State<PortfolioPage> {
   late PortfolioViewModel _viewModel;
   String _userName = "";
+  String? _currentAvatarUrl;
+  final CloudinaryService _cloudinaryService = CloudinaryService();
 
   bool _hasPortfolio = false;
   final TextEditingController _nameController = TextEditingController();
@@ -37,6 +45,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
     super.initState();
     _viewModel = Provider.of<PortfolioViewModel>(context, listen: false);
     _loadUserData();
+    _loadUserAvatar();
   }
 
   @override
@@ -106,6 +115,42 @@ class _PortfolioPageState extends State<PortfolioPage> {
     }
   }
 
+  Future<void> _loadUserAvatar() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final snapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('users')
+          .child(userId)
+          .get();
+
+      if (snapshot.exists) {
+        final data = _convertToStringMap(snapshot.value);
+        setState(() {
+          _currentAvatarUrl = data['avatarUrl']?.toString();
+        });
+      }
+    } catch (e) {
+      print('Error loading user avatar: $e');
+    }
+  }
+
+  Future<void> _refreshAllData() async {
+    await Future.wait([
+      _loadUserData(),
+      _loadUserAvatar(),
+    ]);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when dependencies change (e.g., coming back from settings)
+    _refreshAllData();
+  }
+
   void _showToast(String message) {
     setState(() {
       _toastMessage = message;
@@ -121,8 +166,8 @@ class _PortfolioPageState extends State<PortfolioPage> {
   }
 
   // In PortfolioPage, modify the edit button action:
-  void _editPortfolio() {
-    Navigator.of(context).push(
+  void _editPortfolio() async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EditPortfolioPage(
           profile: _viewModel.hasProfile ? _viewModel.profile! : Profile(
@@ -131,19 +176,21 @@ class _PortfolioPageState extends State<PortfolioPage> {
             bio: _bioController.text,
             specialty: _specialty,
             profileImage: _profileImage,
-            coverImage: _coverImage,
             certifications: _certifications,
             projects: _projects,
           ),
           onSave: (updatedProfile) {
             // The data is already saved to Firebase by EditPortfolioPage
-            // Just reload to refresh the UI
-            _loadUserData();
             _showToast("Portfolio successfully updated");
           },
         ),
       ),
     );
+
+    // Refresh data when returning from edit screen
+    if (result != null || mounted) {
+      await _refreshAllData();
+    }
   }
 
   String _getSpecialtyName(String value) {
@@ -279,27 +326,39 @@ class _PortfolioPageState extends State<PortfolioPage> {
               Container(
                 height: 120,
                 width: double.infinity,
-                color: const Color(0xFF6B8E23).withOpacity(0.1),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 120,
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: _coverImage != null
-                                ? FileImage(_coverImage!) as ImageProvider
-                                : const AssetImage("assets/images/coverImage.jpg"),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                child: _viewModel.profile?.coverImageUrl != null && _viewModel.profile!.coverImageUrl!.isNotEmpty
+                    ? CachedNetworkImage(
+                  imageUrl: _cloudinaryService.getOptimizedImageUrl(
+                    _viewModel.profile!.coverImageUrl!,
+                    width: 800,
+                    height: 320,
+                  ),
+                  height: 120,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: const Color(0xFF6B8E23).withOpacity(0.1),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                        strokeWidth: 2,
                       ),
-                    ],
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: const Color(0xFF6B8E23).withOpacity(0.1),
+                    child: const Center(
+                      child: Icon(Icons.error, color: Colors.grey, size: 32),
+                    ),
+                  ),
+                )
+                    : Container(
+                  height: 120,
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage("assets/images/coverImage.jpg"), // Default fallback
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
@@ -345,9 +404,41 @@ class _PortfolioPageState extends State<PortfolioPage> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(45),
-                        child: _profileImage != null
+                        child: _currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty
+                            ? CachedNetworkImage(
+                          imageUrl: _cloudinaryService.getOptimizedImageUrl(
+                            _currentAvatarUrl!,
+                            width: 160,
+                            height: 160,
+                          ),
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: const Color(0xFFEEEEEE),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: const Color(0xFFEEEEEE),
+                            child: const Icon(
+                              Icons.person,
+                              size: 40,
+                              color: Color(0xFF999999),
+                            ),
+                          ),
+                        )
+                            : (_viewModel.profile?.profileImage != null
                             ? Image.file(
-                          _profileImage!,
+                          _viewModel.profile!.profileImage!,
                           fit: BoxFit.cover,
                         )
                             : Container(
@@ -357,7 +448,7 @@ class _PortfolioPageState extends State<PortfolioPage> {
                             size: 40,
                             color: Color(0xFF999999),
                           ),
-                        ),
+                        )),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -556,25 +647,49 @@ class _PortfolioPageState extends State<PortfolioPage> {
                           Container(
                             height: 192,
                             width: double.infinity,
-                            child: (project.isLocalImage && project.imageUrl?.isNotEmpty == true)
-                                ? Image.file(
-                              File(project.imageUrl!),
+                            child: (project.imageUrl != null && project.imageUrl!.isNotEmpty && !project.isLocalImage)
+                                ? CachedNetworkImage(
+                              imageUrl: _cloudinaryService.getOptimizedImageUrl(
+                                project.imageUrl!,
+                                width: 600,
+                                height: 400,
+                              ),
                               height: 192,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                            )
-                                : (project.imageUrl != null)
-                                ? Image.asset(
-                              project.imageUrl!,
-                              height: 192,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                color: const Color(0xFFEEEEEE),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey.shade300,
+                                child: const Center(
+                                  child: Icon(Icons.error, color: Colors.red, size: 32),
+                                ),
+                              ),
                             )
                                 : Container(
-                              // Placeholder for when imageUrl is null
-                              color: Colors.grey,
-                              child: Center(
-                                child: Icon(Icons.image_not_supported, size: 50),
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.image_outlined, size: 40, color: Colors.grey),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      "No image uploaded",
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),

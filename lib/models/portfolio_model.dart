@@ -6,7 +6,7 @@ class Profile {
   String bio;
   String specialty;
   File? profileImage;
-  File? coverImage;
+  final String? coverImageUrl;
   List<CertificationItem> certifications;
   List<ProjectItem> projects;
 
@@ -16,7 +16,7 @@ class Profile {
     required this.bio,
     required this.specialty,
     this.profileImage,
-    this.coverImage,
+    this.coverImageUrl,
     required this.certifications,
     required this.projects,
   });
@@ -38,7 +38,7 @@ class Profile {
       bio: bio ?? this.bio,
       specialty: specialty ?? this.specialty,
       profileImage: profileImage ?? this.profileImage,
-      coverImage: coverImage ?? this.coverImage,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       certifications: certifications ?? this.certifications,
       projects: projects ?? this.projects,
     );

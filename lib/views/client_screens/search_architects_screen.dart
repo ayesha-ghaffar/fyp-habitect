@@ -483,67 +483,67 @@ class _SearchArchitectsState extends State<SearchArchitects> {
                   children: [
                     _buildArchitectCard(
                       onTap: () => _viewProfile(1),
-                      imageUrl:
-                      "https://readdy.ai/api/search-image?query=professional%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch1&orientation=portrait",
-                      name: "Aqsa Irfan",
+                      imageAsset:
+                      "assets/images/Female Architect 1.jpeg",
+                      name: "Amna Khan",
                       rating: 4.9,
                       reviewCount: 124,
-                      location: "Islamabad, 2.4 mi",
+                      location: "Islamabad",
                       specialty: "Residential",
                       priceRange: "\$120-150/hr",
                     ),
                     _buildArchitectCard(
                       onTap: () => _viewProfile(2),
-                      imageUrl:
-                      "https://readdy.ai/api/search-image?query=professional%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch2&orientation=portrait",
-                      name: "M. Ali",
+                      imageAsset:
+                      "assets/images/Male Architect 1.jpeg",
+                      name: "Ali Akbar",
                       rating: 4.8,
                       reviewCount: 87,
-                      location: "Islamabad, 5.1 mi",
+                      location: "Lahore",
                       specialty: "Commercial",
                       priceRange: "\$140-180/hr",
                     ),
                     _buildArchitectCard(
                       onTap: () => _viewProfile(3),
-                      imageUrl:
-                      "https://readdy.ai/api/search-image?query=professional%20asian%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch3&orientation=portrait",
-                      name: "Amna Khan",
+                      imageAsset:
+                      "assets/images/Female Architect 2.jpeg",
+                      name: "Aqsa Irfan",
                       rating: 4.7,
                       reviewCount: 56,
-                      location: "Rawalpindi, 3.8 mi",
+                      location: "Lahore",
                       specialty: "Interior",
                       priceRange: "\$110-140/hr",
                     ),
                     _buildArchitectCard(
                       onTap: () => _viewProfile(4),
-                      imageUrl:
-                      "https://readdy.ai/api/search-image?query=professional%20black%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch4&orientation=portrait",
-                      name: "Ahmed",
-                      rating: 4.9,
-                      reviewCount: 142,
-                      location: "Islamabad, 1.5 mi",
-                      specialty: "Sustainable",
-                      priceRange: "\$150-200/hr",
-                    ),
-                    _buildArchitectCard(
-                      onTap: () => _viewProfile(5),
-                      imageUrl:
-                      "https://readdy.ai/api/search-image?query=professional%20female%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch5&orientation=portrait",
+                      imageAsset:
+                      "assets/images/Female Architect 3.jpeg",
                       name: "Mariam Zahid",
                       rating: 4.6,
                       reviewCount: 78,
-                      location: "Rawalpindi, 4.2 mi",
+                      location: "Karachi, 4.2",
                       specialty: "Landscape",
                       priceRange: "\$130-160/hr",
                     ),
                     _buildArchitectCard(
+                      onTap: () => _viewProfile(5),
+                      imageAsset:
+                      "assets/images/Male Architect 2.jpeg",
+                      name: "Musa Malik",
+                      rating: 4.9,
+                      reviewCount: 142,
+                      location: "Islamabad",
+                      specialty: "Sustainable",
+                      priceRange: "\$150-200/hr",
+                    ),
+                    _buildArchitectCard(
                       onTap: () => _viewProfile(6),
-                      imageUrl:
-                      "https://readdy.ai/api/search-image?query=professional%20male%20architect%20in%20modern%20office%2C%20professional%20headshot%2C%20confident%20pose%2C%20business%20attire%2C%20neutral%20background%2C%20high%20quality%2C%20photorealistic&width=200&height=200&seq=arch6&orientation=portrait",
-                      name: "Hamza",
+                      imageAsset:
+                      "assets/images/Male Architect 3.jpeg",
+                      name: "Asad Omer",
                       rating: 4.8,
                       reviewCount: 95,
-                      location: "Rawalpindi, 3.1 mi",
+                      location: "Islamabad",
                       specialty: "Modern",
                       priceRange: "\$140-190/hr",
                     ),
@@ -610,7 +610,7 @@ class _SearchArchitectsState extends State<SearchArchitects> {
 
   Widget _buildArchitectCard({
     required VoidCallback onTap,
-    required String imageUrl,
+    required String imageAsset,
     required String name,
     required double rating,
     required int reviewCount,
@@ -645,8 +645,8 @@ class _SearchArchitectsState extends State<SearchArchitects> {
                   child: ClipRRect(
                     borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(8.0)),
-                    child: Image.network(
-                      imageUrl,
+                    child: Image.asset(
+                      imageAsset,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(

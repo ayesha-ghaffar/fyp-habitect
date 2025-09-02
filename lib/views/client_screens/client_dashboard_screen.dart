@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:fyp/views/client_screens/profile_settings_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fyp/services/cloudinary_service.dart';
 import '../svg_icon.dart';
 import 'client_home_screen.dart';
 import 'uploaded_projects_screen.dart';
@@ -17,15 +22,46 @@ class ClientDashboard extends StatefulWidget {
 class _ClientDashboardState extends State<ClientDashboard> {
   int _selectedIndex = 0;
   bool _isProfileMenuOpen = false;
+  String? _currentAvatarUrl; // Changed from File to String URL
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final databaseRef = FirebaseDatabase.instance.ref();
+  User? get user => FirebaseAuth.instance.currentUser;
+
+  Key _homeScreenKey = UniqueKey();
+  Key _profileScreenKey = UniqueKey();
+
 
   // List of screens for bottom navigation - updated to include search
-  final List<Widget> _screens = [
-    const ClientHomeScreen(),     // Index 0: Home
-    const SearchArchitects(),         // Index 1: Search
-    const UploadedProjectsScreen(), // Index 2: Projects
-    const ChatListScreen(),     // Index 3: Messages (placeholder)
-    const ProfileScreen(),        // Index 4: Profile
+  List<Widget> get _screens => [
+    ClientHomeScreen(key: _homeScreenKey, onRefreshNeeded: _refreshHomeScreen),
+    const SearchArchitects(),
+    const UploadedProjectsScreen(),
+    const ChatListScreen(),
+    ProfilePage(key: _profileScreenKey, onRefreshNeeded: _refreshProfileScreen),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserAvatar();
+  }
+
+  // Load user avatar from Firebase
+  Future<void> _loadUserAvatar() async {
+    if (user == null) return;
+
+    try {
+      final snapshot = await databaseRef.child('users/${user!.uid}').get();
+      if (snapshot.exists) {
+        final data = Map<String, dynamic>.from(snapshot.value as Map<dynamic, dynamic>);
+        setState(() {
+          _currentAvatarUrl = data['avatarUrl']?.toString();
+        });
+      }
+    } catch (e) {
+      print('Error loading user avatar: $e');
+    }
+  }
 
   // Method to update the selected index - expose this to child widgets
   void updateSelectedIndex(int index) {
@@ -41,12 +77,39 @@ class _ClientDashboardState extends State<ClientDashboard> {
     });
   }
 
-  void _navigateToProfile() {
-    Navigator.pushNamed(context, '/profile');
+  void _refreshHomeScreen() {
     setState(() {
-      _isProfileMenuOpen = false;
+      _homeScreenKey = UniqueKey();
+    });
+    _loadUserAvatar();
+  }
+
+  void _refreshProfileScreen() {
+    setState(() {
+      _profileScreenKey = UniqueKey();
+    });
+    _loadUserAvatar();
+  }
+
+  void _navigateToProfileSettings() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileSettingsScreen(
+          currentProfileImage: null,
+          onProfileImageChanged: null,
+        ),
+      ),
+    );
+
+    // Reload avatar and refresh both screens when returning from profile settings
+    await _loadUserAvatar();
+    setState(() {
+      _homeScreenKey = UniqueKey();
+      _profileScreenKey = UniqueKey();
     });
   }
+
 
   void _logout() async {
     final shouldLogout = await showDialog(
@@ -68,6 +131,66 @@ class _ClientDashboardState extends State<ClientDashboard> {
     setState(() {
       _isProfileMenuOpen = false;
     });
+  }
+
+  // Build profile avatar widget
+  Widget _buildProfileAvatar() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.grey.shade400,
+          width: 0.25,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: _currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty
+            ? CachedNetworkImage(
+          imageUrl: _cloudinaryService.getOptimizedImageUrl(
+            _currentAvatarUrl!,
+            width: 64,
+            height: 64,
+          ),
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey.shade300,
+            child: const Icon(
+              Icons.person,
+              size: 20,
+              color: Colors.grey,
+            ),
+          ),
+        )
+            : Container(
+          width: 32,
+          height: 32,
+          color: Colors.grey.shade300,
+          child: const Icon(
+            Icons.person,
+            size: 20,
+            color: Colors.grey,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -120,12 +243,12 @@ class _ClientDashboardState extends State<ClientDashboard> {
               ),
             ],
           ),
-          // Single profile implementation using PopupMenuButton
+          // Updated profile implementation
           PopupMenuButton<String>(
             offset: const Offset(0, 52),
             onSelected: (String value) {
               if (value == 'profile') {
-                _navigateToProfile();
+                _navigateToProfileSettings();
               } else if (value == 'logout') {
                 _logout();
               }
@@ -166,20 +289,7 @@ class _ClientDashboardState extends State<ClientDashboard> {
               padding: const EdgeInsets.only(right: 16.0),
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 8.0),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 2.0,
-                  ),
-                ),
-                child: CircleAvatar(
-                  backgroundColor: const Color(0xFFF4EBD0),
-                  radius: 16,
-                  backgroundImage: const NetworkImage(
-                    'https://via.placeholder.com/80x80',
-                  ),
-                ),
+                child: _buildProfileAvatar(),
               ),
             ),
           ),

@@ -6,11 +6,14 @@ class ProjectsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Projects')),
       body: const Center(
         child: Text(
-          'Project management UI will appear here.',
-          style: TextStyle(fontSize: 18),
+          "No projects found",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF333333),
+          ),
         ),
       ),
     );

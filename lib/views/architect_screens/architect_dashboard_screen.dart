@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fyp/services/cloudinary_service.dart';
 import '../svg_icon.dart';
 import 'architect_portfolio_screen.dart';
 import 'find_projects_screen.dart';
+import 'project_management_screen.dart';
 import 'architect_panel.dart';
+import '../client_screens/chat_list_screen.dart';
+import '../client_screens/profile_settings_screen.dart';
 
 // Main container widget that manages navigation
 class ArchitectDashboard extends StatefulWidget {
   const ArchitectDashboard({super.key});
+
 
   @override
   State<ArchitectDashboard> createState() => _ArchitectDashboardState();
@@ -14,21 +22,125 @@ class ArchitectDashboard extends StatefulWidget {
 
 class _ArchitectDashboardState extends State<ArchitectDashboard> {
   int _selectedIndex = 0;
+  bool _isProfileMenuOpen = false;
+  String? _currentAvatarUrl;
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final databaseRef = FirebaseDatabase.instance.ref();
+  User? get user => FirebaseAuth.instance.currentUser;
+
+  Key _homeScreenKey = UniqueKey();
+  Key _portfolioScreenKey = UniqueKey();
 
   // List of screens for bottom navigation
-  final List<Widget> _screens = [
-    const HomeScreen(),
+  List<Widget> get _screens => [
+    HomeScreen(key: _homeScreenKey, onRefreshNeeded: _refreshHomeScreen),
     const FindProjects(),
-    const Placeholder(), // Projects screen
-    const Placeholder(), // Messages screen
-    const PortfolioPage(), // Profile/My screen
+    const ProjectsScreen(),
+    const ChatListScreen(),
+    PortfolioPage(key: _portfolioScreenKey, onRefreshNeeded: _refreshPortfolioScreen),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserAvatar();
+  }
+
+  void _refreshPortfolioScreen() {
+    setState(() {
+      _portfolioScreenKey = UniqueKey();
+    });
+  }
+
+  // Add method to refresh home screen
+  void _refreshHomeScreen() {
+    setState(() {
+      _homeScreenKey = UniqueKey(); // Force recreation of HomeScreen
+    });
+  }
+
+// Load user avatar from Firebase
+  Future<void> _loadUserAvatar() async {
+    if (user == null) return;
+
+    try {
+      final snapshot = await databaseRef.child('users/${user!.uid}').get();
+      if (snapshot.exists) {
+        final data = Map<String, dynamic>.from(snapshot.value as Map<dynamic, dynamic>);
+        setState(() {
+          _currentAvatarUrl = data['avatarUrl']?.toString();
+        });
+      }
+    } catch (e) {
+      print('Error loading user avatar: $e');
+    }
+  }
 
   // Method to update the selected index - expose this to child widgets
   void updateSelectedIndex(int index) {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  // Build profile avatar widget
+  Widget _buildProfileAvatar() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.grey.shade400,
+          width: 0.25,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: _currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty
+            ? CachedNetworkImage(
+          imageUrl: _cloudinaryService.getOptimizedImageUrl(
+            _currentAvatarUrl!,
+            width: 64,
+            height: 64,
+          ),
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey.shade300,
+            child: const Icon(
+              Icons.person,
+              size: 20,
+              color: Colors.grey,
+            ),
+          ),
+        )
+            : Container(
+          width: 32,
+          height: 32,
+          color: Colors.grey.shade300,
+          child: const Icon(
+            Icons.person,
+            size: 20,
+            color: Colors.grey,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -54,13 +166,52 @@ class _ArchitectDashboardState extends State<ArchitectDashboard> {
             icon: SvgIcon(iconName: 'notification'),
             onPressed: () {},
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              backgroundColor: const Color(0xFFF4EBD0),
-              radius: 16,
-              backgroundImage: const NetworkImage(
-                'https://via.placeholder.com/80x80',
+          PopupMenuButton<String>(
+            offset: const Offset(0, 52),
+            onSelected: (String value) {
+              if (value == 'profile') {
+                _navigateToProfileSettings();
+              } else if (value == 'logout') {
+                _logout();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgIcon(
+                      iconName: 'user',
+                      size: 18,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Profile Settings'),
+                  ],
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.logout_rounded,
+                      size: 18,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8.0),
+                child: _buildProfileAvatar(),
               ),
             ),
           ),
@@ -88,6 +239,49 @@ class _ArchitectDashboardState extends State<ArchitectDashboard> {
         onTap: updateSelectedIndex,
       ),
     );
+  }
+
+  void _navigateToProfileSettings() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProfileSettingsScreen(
+          currentProfileImage: null,
+          onProfileImageChanged: null,
+        ),
+      ),
+    );
+
+    // Reload avatar when returning from profile settings
+    _loadUserAvatar();
+
+    // Force both HomeScreen and PortfolioPage to refresh
+    setState(() {
+      _homeScreenKey = UniqueKey(); // This forces HomeScreen to rebuild completely
+      _portfolioScreenKey = UniqueKey(); // This forces PortfolioPage to rebuild completely
+    });
+  }
+
+  void _logout() async {
+    final shouldLogout = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirm Logout"),
+        content: const Text("Are you sure you want to log out?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("Logout")),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      // Add your logout logic here
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+    setState(() {
+      _isProfileMenuOpen = false;
+    });
   }
 }
 
@@ -185,7 +379,7 @@ class CustomBottomNav extends StatelessWidget {
                     ? Theme.of(context).colorScheme.primary
                     : Colors.grey[500],
               ),
-              label: 'My',
+              label: 'Profile',
             ),
           ],
         ),

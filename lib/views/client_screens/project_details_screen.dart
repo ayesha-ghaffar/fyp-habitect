@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp/models/project_model.dart';
 import 'package:fyp/services/project_posting_service.dart';
 import 'package:fyp/views/client_screens/project_bids_screen.dart';
+import 'package:intl/intl.dart';
 
 class ProjectDetailsScreen extends StatefulWidget {
   final String projectId;
@@ -26,27 +27,73 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       return await ProjectPostingService().getProject(widget.projectId);
     } catch (e) {
       print('Error fetching project details: $e');
-      // You might want to show a more user-friendly error here, e.g., a SnackBar
       return null;
     }
   }
 
+  String _getProjectImage(String projectType) {
+    switch (projectType.toLowerCase()) {
+      case 'new construction':
+        return "assets/images/Hillside Residence.jpg";
+      case 'renovation/remodeling':
+        return "assets/images/Boutique.jpg";
+      case 'commercial':
+        return "assets/images/Nexus Office.jpg";
+      default:
+        return "assets/images/Hillside Residence.jpg";
+    }
+  }
+
+  Color _getCategoryColor(String projectType) {
+    switch (projectType.toLowerCase()) {
+      case 'new construction':
+        return const Color(0xFFE2725B);
+      case 'renovation/remodeling':
+        return Colors.blue;
+      case 'commercial':
+        return Colors.purple;
+      default:
+        return const Color(0xFFE2725B);
+    }
+  }
+
+  String _formatBudget(String budget) {
+    if (!budget.toLowerCase().contains('pkr')) {
+      return 'PKR $budget';
+    }
+    return budget;
+  }
+
+  String _formatDate(DateTime date) {
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Define the primary color based on the provided green
-    const Color primaryGreen = Color(0xFF6B8E23);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Project Details', style: TextStyle(color: Colors.white)),
-        backgroundColor: primaryGreen, // Applied new green color
-        iconTheme: const IconThemeData(color: Colors.white), // White back arrow
+        title: const Text(
+          'Project Details',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: FutureBuilder<Project?>(
         future: _projectDetailsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: primaryGreen)); // Applied new green color
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF6B8E23)),
+            );
           } else if (snapshot.hasError) {
             return Center(
               child: Text(
@@ -64,123 +111,229 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             );
           } else {
             final project = snapshot.data!;
+            final categoryColor = _getCategoryColor(project.type);
+
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        project.title,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2C3E50), // Keeping this as a dark text color
-                        ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Project Image
+                  Container(
+                    height: 250,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(_getProjectImage(project.type)),
+                        fit: BoxFit.cover,
                       ),
-                      const Divider(height: 30, thickness: 1),
-                      _buildDetailRow(
-                        icon: Icons.category,
-                        label: 'Project Type',
-                        value: project.type,
-                      ),
-                      _buildDetailRow(
-                        icon: Icons.attach_money,
-                        label: 'Budget',
-                        value: project.budget,
-                      ),
-                      _buildDetailRow(
-                        icon: Icons.calendar_today,
-                        label: 'Start Date',
-                        value: '${project.startDate.day}/${project.startDate.month}/${project.startDate.year}',
-                      ),
-                      if (project.endDate != null)
-                        _buildDetailRow(
-                          icon: Icons.event_busy,
-                          label: 'End Date',
-                          value: '${project.endDate!.day}/${project.endDate!.month}/${project.endDate!.year}',
-                        ),
-                      _buildDetailRow(
-                        icon: Icons.location_on,
-                        label: 'Location',
-                        value: project.location,
-                      ),
-                      _buildDetailRow(
-                        icon: Icons.info_outline,
-                        label: 'Status',
-                        value: project.status.toUpperCase(),
-                        valueColor: project.status == 'open' ? primaryGreen : Colors.orange, // Status color adjusted
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Layout Preferences:',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[800],
-                        ),
-                      ),
-                      Wrap(
-                        spacing: 8.0,
-                        runSpacing: 4.0,
-                        children: project.layoutPreferences.map((pref) => Chip(
-                          label: Text(pref),
-                          backgroundColor: Colors.grey[200],
-                        )).toList(),
-                      ),
-                      if (project.notes != null && project.notes!.isNotEmpty) ...[
-                        const SizedBox(height: 16),
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Project Title
                         Text(
-                          'Notes:',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
+                          project.title,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          project.notes!,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      Center(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProjectBidsScreen(projectId: project.id!, projectTitle: project.title),
+                        const SizedBox(height: 12),
+
+                        // Category and Status
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: categoryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                            );
-                          },
-                          icon: const Icon(Icons.gavel, color: Colors.white),
-                          label: Text(
-                            'View Bids (${project.bids?.length ?? 0})',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              child: Text(
+                                project.type,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: categoryColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: project.status == 'open'
+                                    ? Colors.green.withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                project.status.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: project.status == 'open' ? Colors.green : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Project Details Section
+                        _buildDetailSection(
+                          title: 'Project Details',
+                          children: [
+                            _buildDetailRow(
+                              icon: Icons.location_on,
+                              label: 'Location',
+                              value: project.location,
+                            ),
+                            _buildDetailRow(
+                              icon: Icons.attach_money,
+                              label: 'Budget',
+                              value: _formatBudget(project.budget),
+                            ),
+                            _buildDetailRow(
+                              icon: Icons.calendar_today,
+                              label: 'Start Date',
+                              value: _formatDate(project.startDate),
+                            ),
+                            if (project.endDate != null)
+                              _buildDetailRow(
+                                icon: Icons.event_busy,
+                                label: 'End Date',
+                                value: _formatDate(project.endDate!),
+                              ),
+                            _buildDetailRow(
+                              icon: Icons.category,
+                              label: 'Project Type',
+                              value: project.type,
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Layout Preferences Section
+                        if (project.layoutPreferences.isNotEmpty)
+                          _buildDetailSection(
+                            title: 'Layout Preferences',
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: project.layoutPreferences.map((preference) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF9F9F7),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      preference,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryGreen, // Applied new green color
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+
+                        const SizedBox(height: 24),
+
+                        // Description Section
+                        if (project.notes != null && project.notes!.isNotEmpty)
+                          _buildDetailSection(
+                            title: 'Description',
+                            children: [
+                              Text(
+                                project.notes!,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade700,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        const SizedBox(height: 24),
+
+                        // Project Timeline
+                        _buildDetailSection(
+                          title: 'Timeline',
+                          children: [
+                            _buildTimelineItem(
+                              'Project Posted',
+                              _formatDate(project.createdAt),
+                              true,
+                            ),
+                            if (project.endDate != null)
+                              _buildTimelineItem(
+                                'Target Completion',
+                                _formatDate(project.endDate!),
+                                false,
+                              ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // Action Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProjectBidsScreen(
+                                    projectId: project.id!,
+                                    projectTitle: project.title,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.gavel, color: Colors.white),
+                            label: Text(
+                              'View Bids (${project.bids?.length ?? 0})',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6B8E23),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             );
           }
@@ -189,43 +342,102 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     );
   }
 
+  Widget _buildDetailSection({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...children,
+      ],
+    );
+  }
+
   Widget _buildDetailRow({
     required IconData icon,
     required String label,
     required String value,
-    Color valueColor = Colors.black87,
   }) {
-    // Define the primary color based on the provided green
-    const Color primaryGreen = Color(0xFF6B8E23);
-
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: primaryGreen, size: 20), // Applied new green color
+          Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFF6B8E23),
+          ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[600],
-                ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: valueColor,
-                  fontWeight: FontWeight.normal,
-                ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
               ),
-            ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineItem(String title, String date, bool isCompleted) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: isCompleted ? const Color(0xFF6B8E23) : Colors.grey.shade300,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  date,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

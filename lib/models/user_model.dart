@@ -41,22 +41,40 @@ class UserModel {
     // Debug print for UserModel.fromMap entry
     print('UserModel.fromMap: Processing map for UID $uid: $map');
 
-    // Safe parsing for dateOfBirth
+    // Safe parsing for dateOfBirth with proper error handling
     DateTime parsedDateOfBirth;
-    if (map['dateOfBirth'] is int) {
-      parsedDateOfBirth = DateTime.fromMillisecondsSinceEpoch(map['dateOfBirth']);
-    } else if (map['dateOfBirth'] is String) {
-      // Assuming ISO 8601 string if not int (e.g., "2000-03-12T00:00:00.000")
-      // This is less likely for ServerValue.timestamp, but good to be robust.
-      parsedDateOfBirth = DateTime.parse(map['dateOfBirth']);
-    } else {
-      parsedDateOfBirth = DateTime.now(); // Default if neither int nor string
+    try {
+      if (map['dateOfBirth'] is int) {
+        parsedDateOfBirth = DateTime.fromMillisecondsSinceEpoch(map['dateOfBirth']);
+      } else if (map['dateOfBirth'] is String) {
+        // Try parsing as ISO 8601 string
+        parsedDateOfBirth = DateTime.parse(map['dateOfBirth']);
+      } else if (map['dateOfBirth'] != null) {
+        // Handle case where it might be a different type
+        print('Unexpected dateOfBirth type: ${map['dateOfBirth'].runtimeType}');
+        parsedDateOfBirth = DateTime.now(); // Default fallback
+      } else {
+        // Handle null case
+        parsedDateOfBirth = DateTime.now(); // Default if null
+      }
+    } catch (e) {
+      print('Error parsing dateOfBirth: $e');
+      print('dateOfBirth value: ${map['dateOfBirth']}');
+      print('dateOfBirth type: ${map['dateOfBirth'].runtimeType}');
+      // Use a default date or current date as fallback
+      parsedDateOfBirth = DateTime.now();
     }
 
     // Ensure notifications map is correctly cast before passing to NotificationPreferences.fromMap
     Map<String, dynamic> notificationsMap = {};
-    if (map['notifications'] != null && map['notifications'] is Map) {
-      notificationsMap = Map<String, dynamic>.from(map['notifications'] as Map);
+    try {
+      if (map['notifications'] != null && map['notifications'] is Map) {
+        notificationsMap = Map<String, dynamic>.from(map['notifications'] as Map);
+      }
+    } catch (e) {
+      print('Error parsing notifications: $e');
+      // Use empty map as fallback
+      notificationsMap = {};
     }
 
     return UserModel(
@@ -68,7 +86,7 @@ class UserModel {
       dateOfBirth: parsedDateOfBirth,
       gender: (map['gender'] as String?)?.toGenderEnum() ?? Gender.unknown,
       avatarUrl: map['avatarUrl'] ?? '',
-      notifications: NotificationPreferences.fromMap(notificationsMap), // Pass the safely cast map
+      notifications: NotificationPreferences.fromMap(notificationsMap),
       userType: (map['userType'] as String?)?.toUserTypeEnum() ?? UserType.unknown,
       createdAt: map['createdAt'],
       updatedAt: map['updatedAt'],

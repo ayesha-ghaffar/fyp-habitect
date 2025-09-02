@@ -17,6 +17,8 @@ dependencies:
   fluttertoast: ^8.2.12
   email_validator: ^3.0.0
   image_picker: ^1.1.2
+  cloudinary: ^1.2.0
+  http: ^1.4.0
   remixicon: ^1.4.1
   intl: ^0.20.2
   flutter_svg: ^2.1.0
@@ -53,6 +55,13 @@ flutter:
      - assets/images/Modern Villa.jpg
      - assets/images/Urban Cafe.jpg
      - assets/images/Hillside Residence.jpg
+     - assets/images/Kitchen.jpg
+     - assets/images/Female Architect 1.jpeg
+     - assets/images/Female Architect 2.jpeg
+     - assets/images/Female Architect 3.jpeg
+     - assets/images/Male Architect 1.jpeg
+     - assets/images/Male Architect 2.jpeg
+     - assets/images/Male Architect 3.jpeg
      - assets/images/Nexus Office.jpg
      - assets/images/Boutique.jpg
      - assets/images/empty_portfolio.png
@@ -63,11 +72,13 @@ flutter:
      - assets/icons/bookmark-fill.svg
      - assets/icons/business.svg
      - assets/icons/calendar.svg
+     - assets/icons/phone.svg
      - assets/icons/circle.svg
      - assets/icons/close.svg
      - assets/icons/files.svg
      - assets/icons/filter-list.svg
      - assets/icons/gallery.svg
+     - assets/icons/help.svg
      - assets/icons/home.svg
      - assets/icons/house.svg
      - assets/icons/location.svg

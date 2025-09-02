@@ -83,10 +83,12 @@ class _FindProjectsState extends State<FindProjects> {
     switch (projectType.toLowerCase()) {
       case 'new construction':
         return "assets/images/Hillside Residence.jpg";
-      case 'renovation/remodeling':
+      case 'renovation':
+        return "assets/images/Kitchen.jpg";
+      case 'interior design':
         return "assets/images/Boutique.jpg";
-      case 'commercial':
-        return "assets/images/Nexus Office.jpg";
+      case 'expansion':
+        return "assets/images/Modern Villa.jpg";
       default:
         return "assets/images/Hillside Residence.jpg";
     }

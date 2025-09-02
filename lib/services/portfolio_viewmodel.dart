@@ -134,6 +134,7 @@ class PortfolioViewModel extends ChangeNotifier {
         location: _getString(data, 'location'),
         bio: _getString(data, 'bio'),
         specialty: _getString(data, 'specialty', 'modern'),
+        coverImageUrl: _getString(data, 'coverImageUrl'), // Add this line
         certifications: certifications,
         projects: projects,
       );
@@ -177,12 +178,13 @@ class PortfolioViewModel extends ChangeNotifier {
       })
           .toList();
 
-      // Prepare portfolio data (without images)
+      // Prepare portfolio data (including coverImageUrl)
       Map<String, dynamic> portfolioData = {
         'name': profile.name,
         'location': profile.location,
         'bio': profile.bio,
         'specialty': profile.specialty,
+        'coverImageUrl': profile.coverImageUrl ?? '', // Add this line
         'projects': projectsData,
         'certifications': certificationsData,
         'lastUpdated': ServerValue.timestamp,

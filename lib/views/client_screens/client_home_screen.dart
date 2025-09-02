@@ -1,11 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fyp/services/cloudinary_service.dart';
 import '../svg_icon.dart';
 import 'client_dashboard_screen.dart';
 
 class ClientHomeScreen extends StatefulWidget {
-  const ClientHomeScreen({super.key});
+  final VoidCallback? onRefreshNeeded;
+
+  const ClientHomeScreen({super.key, this.onRefreshNeeded});
 
   @override
   State<ClientHomeScreen> createState() => _ClientHomeScreenState();
@@ -14,24 +18,42 @@ class ClientHomeScreen extends StatefulWidget {
 class _ClientHomeScreenState extends State<ClientHomeScreen> {
   final user = FirebaseAuth.instance.currentUser;
   String? username;
+  String? _currentAvatarUrl;
   bool isLoading = true;
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
 
   @override
   void initState() {
     super.initState();
-    fetchUsername();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    await Future.wait([
+      fetchUsername(),
+      _loadUserAvatar(),
+    ]);
   }
 
   Future<void> fetchUsername() async {
     if (user != null) {
-      final ref = FirebaseDatabase.instance.ref().child("users/${user!.uid}/username");
-      final snapshot = await ref.get();
-      if (snapshot.exists) {
-        setState(() {
-          username = snapshot.value.toString();
-          isLoading = false;
-        });
-      } else {
+      try {
+        final ref = FirebaseDatabase.instance.ref().child("users/${user!.uid}/username");
+        final snapshot = await ref.get();
+        if (snapshot.exists) {
+          setState(() {
+            username = snapshot.value.toString();
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            username = "Client";
+            isLoading = false;
+          });
+        }
+      } catch (e) {
+        print('Error loading username: $e');
         setState(() {
           username = "Client";
           isLoading = false;
@@ -43,6 +65,48 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         isLoading = false;
       });
     }
+  }
+
+  Future<void> _loadUserAvatar() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final snapshot = await _database.child('users/$userId').get();
+      if (snapshot.exists) {
+        final data = _convertToStringMap(snapshot.value);
+        setState(() {
+          _currentAvatarUrl = data['avatarUrl']?.toString();
+        });
+      }
+    } catch (e) {
+      print('Error loading user avatar: $e');
+    }
+  }
+
+  Future<void> _refreshAllData() async {
+    await _loadUserData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshAllData();
+  }
+
+  Map<String, dynamic> _convertToStringMap(dynamic data) {
+    if (data == null) return {};
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) {
+      return data.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return {};
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
   }
 
   @override
@@ -85,11 +149,62 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                backgroundColor: Color(0xFFF4EBD0),
-                radius: 28,
-                backgroundImage: NetworkImage(
-                  'https://via.placeholder.com/100x100',
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.grey.shade400,
+                    width: 0.25,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: _currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                    imageUrl: _cloudinaryService.getOptimizedImageUrl(
+                      _currentAvatarUrl!,
+                      width: 112,
+                      height: 112,
+                    ),
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: Colors.grey.shade300,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      width: 56,
+                      height: 56,
+                      color: Colors.grey.shade300,
+                      child: const Icon(
+                        Icons.person,
+                        size: 30,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  )
+                      : Container(
+                    width: 56,
+                    height: 56,
+                    color: Colors.grey.shade300,
+                    child: const Icon(
+                      Icons.person,
+                      size: 30,
+                      color: Colors.grey,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -105,7 +220,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                       ),
                     ),
                     Text(
-                      'May 24, 2025',
+                      '${DateTime.now().day} ${_getMonthName(DateTime.now().month)}, ${DateTime.now().year}',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -214,7 +329,12 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             buttonColor: Theme.of(context).colorScheme.tertiary,
             icon: 'search',
             label: 'Find Architects',
-            onPressed: () => Navigator.pushNamed(context, '/search-architects'),
+            onPressed: () {
+              final navState = ClientNavigationStateWidget.of(context);
+              if (navState != null) {
+                navState.updateSelectedIndex(1);
+              }
+            },
           ),
           _buildQuickAccessButton(
             buttonColor: Theme.of(context).colorScheme.tertiaryFixed,

@@ -22,10 +22,12 @@ class SvgIcon extends StatelessWidget {
       case 'bookmark-fill': return 'assets/icons/bookmark-fill.svg';
       case 'building': return 'assets/icons/business.svg';
       case 'calendar': return 'assets/icons/calendar.svg';
+      case 'phone': return 'assets/icons/phone.svg';
       case 'close': return 'assets/icons/close.svg';
       case 'file-list': return 'assets/icons/files.svg';
       case 'filter-list': return 'assets/icons/filter-list.svg';
       case 'gallery': return 'assets/icons/gallery.svg';
+      case 'help': return 'assets/icons/help.svg';
       case 'home': return 'assets/icons/home.svg';
       case 'location': return 'assets/icons/location.svg';
       case 'menu': return 'assets/icons/menu.svg';

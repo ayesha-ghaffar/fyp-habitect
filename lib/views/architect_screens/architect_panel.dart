@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fyp/services/cloudinary_service.dart';
+import 'package:fyp/services/project_posting_service.dart';
+import 'package:fyp/models/project_model.dart';
 import 'package:fyp/views/svg_icon.dart';
 import 'architect_dashboard_screen.dart';
+import 'availability_screen.dart';
+import 'project_details_screen.dart';
+import '../client_screens/profile_settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onRefreshNeeded;
+
+  const HomeScreen({super.key, this.onRefreshNeeded});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -11,6 +22,212 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool isAvailable = true;
+
+  String userName = "User";
+  String? _currentAvatarUrl;
+  List<Project> newProjectMatches = [];
+  List<Map<String, dynamic>> portfolioProjects = [];
+  bool isLoadingProjects = true;
+  bool isLoadingPortfolio = true;
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final ProjectPostingService _projectService = ProjectPostingService();
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _loadNewProjectMatches();
+    _loadPortfolioProjects();
+    _loadUserAvatar();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        final userSnapshot = await _database.child('users').child(userId).get();
+
+        if (userSnapshot.exists) {
+          final userData = _convertToStringMap(userSnapshot.value);
+          setState(() {
+            userName = userData['username']?.toString() ?? 'User';
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
+  }
+
+  Future<void> _loadUserAvatar() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      final snapshot = await _database.child('users/$userId').get();
+      if (snapshot.exists) {
+        final data = _convertToStringMap(snapshot.value);
+        setState(() {
+          _currentAvatarUrl = data['avatarUrl']?.toString();
+        });
+      }
+    } catch (e) {
+      print('Error loading user avatar: $e');
+    }
+  }
+
+  Future<void> _loadNewProjectMatches() async {
+    try {
+      setState(() {
+        isLoadingProjects = true;
+      });
+
+      // Get recent open projects (limit to 5 for home screen)
+      final allProjects = await _projectService.getAllProjects(status: 'open');
+
+      setState(() {
+        newProjectMatches = allProjects.take(2).toList();
+        isLoadingProjects = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoadingProjects = false;
+      });
+      print('Error loading project matches: $e');
+    }
+  }
+
+  Future<void> _loadPortfolioProjects() async {
+    try {
+      setState(() {
+        isLoadingPortfolio = true;
+      });
+
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        // Load from the same structure as PortfolioPage
+        final portfolioSnapshot = await _database
+            .child('portfolios')
+            .child(userId)
+            .get();
+
+        if (portfolioSnapshot.exists) {
+          final portfolioData = _convertToStringMap(portfolioSnapshot.value);
+          List<Map<String, dynamic>> projects = [];
+
+          // Check if there are projects in the portfolio
+          if (portfolioData.containsKey('projects')) {
+            final projectsData = portfolioData['projects'];
+
+            if (projectsData is List) {
+              // Handle as List
+              for (int i = 0; i < projectsData.length; i++) {
+                final projectData = _convertToStringMap(projectsData[i]);
+                if (projectData.isNotEmpty) {
+                  projects.add({
+                    'title': projectData['title']?.toString() ?? 'Untitled Project',
+                    'subtitle': projectData['completionDate']?.toString() ?? 'Unknown Date',
+                    'image': projectData['imageUrl']?.toString() ?? 'assets/images/placeholder.jpg',
+                    'description': projectData['description']?.toString() ?? '',
+                  });
+                }
+              }
+            } else if (projectsData is Map) {
+              // Handle as Map (if stored as key-value pairs)
+              final projectsMap = _convertToStringMap(projectsData);
+              projectsMap.forEach((key, value) {
+                final projectData = _convertToStringMap(value);
+                projects.add({
+                  'title': projectData['title']?.toString() ?? 'Untitled Project',
+                  'subtitle': projectData['completionDate']?.toString() ?? 'Unknown Date',
+                  'image': projectData['imageUrl']?.toString() ?? 'assets/images/placeholder.jpg',
+                  'description': projectData['description']?.toString() ?? '',
+                });
+              });
+            }
+          }
+
+          setState(() {
+            portfolioProjects = projects;
+            isLoadingPortfolio = false;
+          });
+        } else {
+          setState(() {
+            portfolioProjects = [];
+            isLoadingPortfolio = false;
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        isLoadingPortfolio = false;
+      });
+      print('Error loading portfolio projects: $e');
+    }
+  }
+
+  Future<void> _refreshAllData() async {
+    await Future.wait([
+      _loadUserData(),
+      _loadUserAvatar(),
+      _loadPortfolioProjects(),
+    ]);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshAllData();
+  }
+
+  Map<String, dynamic> _convertToStringMap(dynamic data) {
+    if (data == null) return {};
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) {
+      return data.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return {};
+  }
+
+  String _getProjectImage(String projectType) {
+    switch (projectType.toLowerCase()) {
+      case 'new construction':
+        return "assets/images/Modern Villa.jpg";
+      case 'renovation':
+      case 'renovation/remodeling':
+        return "assets/images/Urban Cafe.jpg";
+      case 'interior design':
+        return "assets/images/Boutique.jpg";
+      case 'commercial':
+        return "assets/images/Nexus Office.jpg";
+      default:
+        return "assets/images/Modern Villa.jpg";
+    }
+  }
+
+  String _formatBudget(String budget) {
+    if (!budget.toLowerCase().contains('pkr') && !budget.contains('\$')) {
+      return '\$$budget';
+    }
+    return budget;
+  }
+
+  String _calculateTimeline(DateTime? startDate, DateTime? endDate) {
+    if (startDate == null || endDate == null) {
+      return '6-8 months'; // Default
+    }
+
+    final months = endDate.difference(startDate).inDays / 30;
+    return '${months.round()} months';
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +248,62 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                       child: Row(
                         children: [
-                          const CircleAvatar(
-                            backgroundColor: Color(0xFFF4EBD0),
-                            radius: 28,
-                            backgroundImage: NetworkImage(
-                              'https://via.placeholder.com/100x100',
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.grey.shade400,
+                                width: 0.25, // Adjust border width as needed
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(28),
+                              child: _currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty
+                                  ? CachedNetworkImage(
+                                imageUrl: _cloudinaryService.getOptimizedImageUrl(
+                                  _currentAvatarUrl!,
+                                  width: 112,
+                                  height: 112,
+                                ),
+                                width: 56,
+                                height: 56,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: Colors.grey.shade300,
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Container(
+                                  width: 56,
+                                  height: 56,
+                                  color: Colors.grey.shade300,
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 30,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                                  : Container(
+                                width: 56,
+                                height: 56,
+                                color: Colors.grey.shade300,
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 30,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -43,15 +311,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Welcome back, Michael',
+                              Text(
+                                'Welcome back, $userName',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               Text(
-                                'May 16, 2025',
+                                '${DateTime.now().day} ${_getMonthName(DateTime.now().month)}, ${DateTime.now().year}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -126,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () {
                           final navState = NavigationStateWidget.of(context);
                           if (navState != null) {
-                            navState.updateSelectedIndex(0);
+                            navState.updateSelectedIndex(3);
                           }
                         }
                       ),
@@ -217,12 +485,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: 'calendar',
                           label: 'Availability',
                           onPressed: () {
-                            // Stay on home screen for now (index 0)
-                            // You could create a dedicated availability screen later
-                            final navState = NavigationStateWidget.of(context);
-                            if (navState != null) {
-                              navState.updateSelectedIndex(0);
-                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AvailabilityScreen(),
+                              ),
+                            );
                           }
                       )
                     ],
@@ -257,25 +525,43 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _buildProjectCard(
-                    context: context,
-                    title: 'Modern Lakeside Villa',
-                    location: 'Boston, MA',
-                    image: 'assets/images/Modern Villa.jpg',
-                    budget: '\$250,000 - \$350,000',
-                    timeline: '6-8 months',
-                    type: 'Residential, New Construction',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildProjectCard(
-                    context: context,
-                    title: 'Urban Café Renovation',
-                    location: 'Cambridge, MA',
-                    image: 'assets/images/Urban Cafe.jpg',
-                    budget: '\$75,000 - \$120,000',
-                    timeline: '3-4 months',
-                    type: 'Commercial, Renovation',
-                  ),
+                  if (isLoadingProjects)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (newProjectMatches.isEmpty)
+                    Card(
+                      elevation: 1,
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          'No new project matches at the moment. Check back later!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    ...newProjectMatches.map((project) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: _buildProjectCard(
+                        context: context,
+                        title: project.title,
+                        location: project.location,
+                        image: _getProjectImage(project.type),
+                        budget: _formatBudget(project.budget),
+                        timeline: _calculateTimeline(project.startDate, project.endDate),
+                        type: project.type,
+                        projectId: project.id,
+                      ),
+                    )),
                 ],
               ),
             ),
@@ -309,7 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildMessageCard(
                     name: 'Emily Richardson',
                     image: 'https://via.placeholder.com/100x100',
-                    message: "Hi Michael, I've reviewed your proposal for the lakeside villa project and I have a few questions...",
+                    message: "Hi Farjaad, I've reviewed your proposal for the lakeside villa project and I have a few questions...",
                     time: '2h ago',
                     hasUnread: false,
                   ),
@@ -352,32 +638,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 0.8,
-                      children: [
-                        _buildPortfolioItem(
-                          image: 'assets/images/Hillside Residence.jpg',
-                          title: 'Hillside Residence',
-                          subtitle: 'Residential, 2024',
+                    if (isLoadingPortfolio)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: CircularProgressIndicator(),
                         ),
-                        _buildPortfolioItem(
-                          image: 'assets/images/Nexus Office.jpg',
-                          title: 'Nexus Office Space',
-                          subtitle: 'Commercial, 2023',
-                        ),
-                        _buildPortfolioItem(
-                          image: 'assets/images/Boutique.jpg',
-                          title: 'Meridian Boutique Hotel',
-                          subtitle: 'Hospitality, 2023',
-                        ),
-                        _buildAddPortfolioItem(context),
-                      ],
-                    ),
+                      )
+                    else
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: 0.8,
+                        children: [
+                          ...portfolioProjects.map((project) => _buildPortfolioItem(
+                            image: project['image'] ?? 'assets/images/placeholder.jpg',
+                            title: project['title'] ?? 'Untitled Project',
+                            subtitle: project['subtitle'] ?? 'Unknown Date',
+                          )),
+                          _buildAddPortfolioItem(context),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -524,6 +808,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String budget,
     required String timeline,
     required String type,
+    String? projectId,
   }) {
     bool isBookmarked = false;
 
@@ -602,9 +887,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               size: 18
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            budget,
-                            style: const TextStyle(fontSize: 12),
+                          Expanded(
+                            child:Text(
+                              budget,
+                              style: const TextStyle(fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
@@ -650,7 +939,17 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  if (projectId != null) {
+                    final project = newProjectMatches.firstWhere((p) => p.id == projectId);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProjectDetailsPage(project: project),
+                      ),
+                    );
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
@@ -760,9 +1059,44 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(
             height: 128,
             width: double.infinity,
-            child: Image.asset(
+            child: image.startsWith('assets/')
+                ? Image.asset(
               image,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: Icon(
+                    Icons.image_not_supported,
+                    color: Colors.grey[600],
+                    size: 40,
+                  ),
+                );
+              },
+            )
+                : Image.network(
+              image,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: image.startsWith('assets/') || image.contains('placeholder')
+                      ? Image.asset(
+                    _getProjectImage('default'), // Use your existing method
+                    fit: BoxFit.cover,
+                  )
+                      : Image.network(
+                    image,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        _getProjectImage('default'),
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ),
           Padding(

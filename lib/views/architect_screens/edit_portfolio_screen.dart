@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../svg_icon.dart';
+import 'package:fyp/services/cloudinary_service.dart';
+import 'package:fyp/services/user_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fyp/models/portfolio_model.dart';
 import 'package:provider/provider.dart';
 import 'package:fyp/services/portfolio_viewmodel.dart';
@@ -22,12 +25,19 @@ class EditPortfolioPage extends StatefulWidget {
 }
 
 class _EditPortfolioPageState extends State<EditPortfolioPage> {
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final UserService _userService = UserService();
+  User? get user => FirebaseAuth.instance.currentUser;
   late TextEditingController _nameController;
   late TextEditingController _locationController;
   late TextEditingController _bioController;
   late String _specialty;
   File? _profileImage;
   File? _coverImage;
+  String? _currentCoverImageUrl;
+  int? _uploadingProjectIndex;
+  bool _uploadingCoverImage = false;
+  bool _uploadingProjectImage = false;
   late List<CertificationItem> _certifications;
   late List<ProjectItem> _projects;
   bool _isToastVisible = false;
@@ -43,7 +53,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
     _bioController = TextEditingController(text: widget.profile.bio);
     _specialty = widget.profile.specialty;
     _profileImage = widget.profile.profileImage;
-    _coverImage = widget.profile.coverImage;
+    _currentCoverImageUrl = widget.profile.coverImageUrl;
 
     // Deep copy the lists to avoid modifying the original lists
     _certifications = widget.profile.certifications.map((cert) =>
@@ -84,19 +94,230 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
   Future<void> _pickImage(ImageSource source, {bool forCover = false}) async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: source);
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: null,
+      );
 
       if (image != null) {
-        setState(() {
-          if (forCover) {
-            _coverImage = File(image.path);
-          } else {
+        if (forCover) {
+          await _uploadCoverImageToCloudinary(File(image.path));
+        } else {
+          setState(() {
             _profileImage = File(image.path);
-          }
-        });
+          });
+        }
       }
     } catch (e) {
       _showToast("Error picking image: $e");
+    }
+  }
+
+  Future<void> _uploadCoverImageToCloudinary(File imageFile) async {
+    if (user == null) return;
+
+    setState(() {
+      _uploadingCoverImage = true;
+    });
+
+    try {
+      print('🔄 Starting cover image upload...');
+
+      // Delete old cover image if exists
+      if (_currentCoverImageUrl != null && _currentCoverImageUrl!.isNotEmpty) {
+        final oldPublicId = _cloudinaryService.extractPublicId(_currentCoverImageUrl!);
+        if (oldPublicId != null) {
+          await _cloudinaryService.deleteImage(oldPublicId);
+        }
+      }
+
+      // Upload new cover image
+      final response = await _cloudinaryService.uploadImage(
+        imageFile: imageFile,
+        userId: user!.uid,
+        folder: 'portfolio_covers',
+      );
+
+      if (response != null && response.isSuccessful) {
+        setState(() {
+          _currentCoverImageUrl = response.secureUrl;
+          _coverImage = imageFile;
+          _uploadingCoverImage = false;
+        });
+
+        _showToast('Cover image updated successfully!');
+        print('✅ Cover image updated successfully!');
+      } else {
+        throw Exception('Upload failed: ${response?.error ?? 'Unknown error'}');
+      }
+    } catch (e) {
+      print('❌ Error uploading cover image: $e');
+      setState(() {
+        _uploadingCoverImage = false;
+      });
+      _showToast('Failed to upload cover image: $e');
+    }
+  }
+
+  // New method to upload project image to Cloudinary
+  Future<void> _uploadProjectImageToCloudinary(File imageFile, int projectIndex) async {
+    if (user == null) return;
+
+    setState(() {
+      _uploadingProjectImage = true;
+      _uploadingProjectIndex = projectIndex;
+    });
+
+    try {
+      print('🔄 Starting project image upload...');
+      final project = _projects[projectIndex];
+
+      // Delete old project image if exists and it's from Cloudinary
+      if (project.imageUrl != null &&
+          project.imageUrl!.isNotEmpty &&
+          !project.isLocalImage &&
+          project.imageUrl!.contains('cloudinary.com')) {
+        final oldPublicId = _cloudinaryService.extractPublicId(project.imageUrl!);
+        if (oldPublicId != null) {
+          await _cloudinaryService.deleteImage(oldPublicId);
+        }
+      }
+
+      // Upload new project image (SAME as Profile Settings - no transformation parameters)
+      final response = await _cloudinaryService.uploadImage(
+        imageFile: imageFile,
+        userId: user!.uid,
+        folder: 'portfolio_projects',
+      );
+
+      if (response != null && response.isSuccessful) {
+        setState(() {
+          project.imageUrl = response.secureUrl;
+          project.isLocalImage = false;
+          _uploadingProjectImage = false;
+          _uploadingProjectIndex = null;
+        });
+
+        _showToast('Project image updated successfully!');
+        print('✅ Project image updated successfully!');
+      } else {
+        throw Exception('Upload failed: ${response?.error ?? 'Unknown error'}');
+      }
+    } catch (e) {
+      print('❌ Error uploading project image: $e');
+      setState(() {
+        _uploadingProjectImage = false;
+        _uploadingProjectIndex = null;
+      });
+      _showToast('Failed to upload project image: $e');
+    }
+  }
+
+  void _showProjectImageOptions(int projectIndex) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickProjectImageFromGallery(projectIndex);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _takeProjectPhoto(projectIndex);
+                },
+              ),
+              if (_projects[projectIndex].imageUrl != null &&
+                  _projects[projectIndex].imageUrl!.isNotEmpty &&
+                  !_projects[projectIndex].imageUrl!.contains('placeholder.jpg'))
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeProjectImage(projectIndex);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.cancel),
+                title: const Text('Cancel'),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickProjectImageFromGallery(int projectIndex) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        await _uploadProjectImageToCloudinary(File(pickedFile.path), projectIndex);
+      }
+    } catch (e) {
+      _showToast("Error picking image: $e");
+    }
+  }
+
+  Future<void> _takeProjectPhoto(int projectIndex) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        await _uploadProjectImageToCloudinary(File(pickedFile.path), projectIndex);
+      }
+    } catch (e) {
+      _showToast("Error taking photo: $e");
+    }
+  }
+
+  Future<void> _removeProjectImage(int projectIndex) async {
+    final project = _projects[projectIndex];
+
+    try {
+      // Delete from Cloudinary if it's a Cloudinary URL
+      if (project.imageUrl != null &&
+          project.imageUrl!.isNotEmpty &&
+          !project.isLocalImage &&
+          project.imageUrl!.contains('cloudinary.com')) {
+        final publicId = _cloudinaryService.extractPublicId(project.imageUrl!);
+        if (publicId != null) {
+          await _cloudinaryService.deleteImage(publicId);
+        }
+      }
+
+      setState(() {
+        project.imageUrl = null;
+        project.isLocalImage = false;
+      });
+
+      _showToast('Project image removed successfully!');
+    } catch (e) {
+      _showToast('Failed to remove image: $e');
     }
   }
 
@@ -172,7 +393,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
         title: "",
         description: "",
         completionDate: "",
-        imageUrl: "assets/images/placeholder.jpg",
+        imageUrl: null,
       ));
     });
   }
@@ -208,8 +429,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
       location: _locationController.text,
       bio: _bioController.text,
       specialty: _specialty,
-      profileImage: _profileImage,
-      coverImage: _coverImage,
+      coverImageUrl: _currentCoverImageUrl,
       certifications: _certifications,
       projects: _projects,
     );
@@ -324,6 +544,11 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
 
   Widget _buildProjectItem(int index) {
     final project = _projects[index];
+    final isUploadingThis = _uploadingProjectImage && _uploadingProjectIndex == index;
+    final hasImage = project.imageUrl != null &&
+        project.imageUrl!.isNotEmpty &&
+        !project.imageUrl!.contains('placeholder.jpg');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -344,20 +569,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
         children: [
           // Project Image
           GestureDetector(
-            onTap: () async {
-              try {
-                final picker = ImagePicker();
-                final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-                if (pickedFile != null) {
-                  setState(() {
-                    project.imageUrl = pickedFile.path;
-                    project.isLocalImage = true;
-                  });
-                }
-              } catch (e) {
-                _showToast("Error picking image: $e");
-              }
-            },
+            onTap: isUploadingThis ? null : () => _showProjectImageOptions(index),
             child: Container(
               height: 192,
               width: double.infinity,
@@ -366,37 +578,111 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
               ),
               child: Stack(
                 children: [
-                  if (project.isLocalImage && project.imageUrl?.isNotEmpty == true)
-                    Image.file(
+                  // Display image based on type and availability
+                  if (hasImage)
+                    project.isLocalImage
+                        ? Image.file(
                       File(project.imageUrl!),
                       height: 192,
                       width: double.infinity,
                       fit: BoxFit.cover,
                     )
-                  else if (project.imageUrl?.isNotEmpty == true)
-                    Image.asset(
-                      project.imageUrl!,
+                        : Image.network(
+                      _cloudinaryService.getOptimizedImageUrl(
+                        project.imageUrl!,
+                        width: 600,
+                        height: 400,
+                      ),
                       height: 192,
                       width: double.infinity,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey.shade200,
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        );
+                      },
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           color: Colors.grey.shade300,
+                          child: const Center(
+                            child: Icon(
+                              Icons.image_not_supported,
+                              color: Colors.grey,
+                              size: 48,
+                            ),
+                          ),
                         );
                       },
                     ),
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withOpacity(0.3),
-                      child: const Center(
-                        child: Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 32,
+
+                  // Upload overlay (only show when no image or uploading)
+                  if (!hasImage && !isUploadingThis)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.grey.shade200,
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.camera_alt,
+                                color: Colors.grey,
+                                size: 32,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+
+                  // Edit overlay for existing images
+                  if (hasImage && !isUploadingThis)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.3),
+                        child: const Center(
+                          child: Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Upload progress indicator
+                  if (isUploadingThis)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.5),
+                        child: const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                strokeWidth: 2,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Uploading...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -577,7 +863,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
           children: [
             // Cover Image Section
             GestureDetector(
-              onTap: () => _pickImage(ImageSource.gallery, forCover: true),
+              onTap: _uploadingCoverImage ? null : () => _pickImage(ImageSource.gallery, forCover: true),
               child: Container(
                 width: double.infinity,
                 height: 160,
@@ -586,51 +872,96 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
                 ),
                 child: Stack(
                   children: [
-                    if (_coverImage != null)
+                    // Display cover image
+                    if (_currentCoverImageUrl != null && _currentCoverImageUrl!.isNotEmpty)
+                      Image.network(
+                        _cloudinaryService.getOptimizedImageUrl(
+                          _currentCoverImageUrl!,
+                          width: 800,
+                          height: 320,
+                        ),
+                        width: double.infinity,
+                        height: 160,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: Colors.grey.shade200,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                                strokeWidth: 2,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade300,
+                          );
+                        },
+                      )
+                    else if (_coverImage != null)
                       Image.file(
                         _coverImage!,
                         width: double.infinity,
                         height: 160,
                         fit: BoxFit.cover,
-                      )
-                    else
-                      Center(
-                        child: Image.asset(
-                          "assets/images/cover_placeholder.jpg",
-                          width: double.infinity,
-                          height: 160,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: Colors.grey.shade300,
-                            );
-                          },
-                        ),
                       ),
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black.withOpacity(0.3),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              "Add Cover Image",
-                              style: TextStyle(
+
+                    // Upload overlay
+                    if (!_uploadingCoverImage)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.3),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.camera_alt,
                                 color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
+                                size: 32,
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 8),
+                              Text(
+                                "Add Cover Image",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+
+                    // Upload progress indicator
+                    if (_uploadingCoverImage)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.5),
+                          child: const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  strokeWidth: 2,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Uploading Cover...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -639,7 +970,7 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
-                "Profile Information",
+                "Professional Intro",
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -648,111 +979,25 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
               ),
             ),
 
-            // Profile section
+            // Bio Section
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Profile image
-                  GestureDetector(
-                    onTap: () => _pickImage(ImageSource.gallery),
-                    child: Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF6B8E23), width: 2),
-                      ),
-                      child: Stack(
-                        children: [
-                          // Base profile image or empty container
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(48),
-                            child: _profileImage != null
-                                ? Image.file(
-                              _profileImage!,
-                              width: 96,
-                              height: 96,
-                              fit: BoxFit.cover,
-                            )
-                                : Container(
-                              width: 96,
-                              height: 96,
-                              color: Colors.grey.shade300,
-                            ),
-                          ),
-                          // Camera overlay for selection
-                          Positioned.fill(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(48),
-                                onTap: () async {
-                                  // Image picker functionality
-                                  final picker = ImagePicker();
-                                  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-                                  if (pickedFile != null) {
-                                    setState(() {
-                                      _profileImage = File(pickedFile.path);
-                                    });
-                                  }
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.black.withOpacity(0.3),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.camera_alt,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Full Name
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: "Full Name",
-                      labelStyle: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF666666),
-                      ),
-                      filled: true,
-                      fillColor: Color(0xFFF9F9F7),
-                      border: OutlineInputBorder(
-                        borderSide: BorderSide.none,
-                        borderRadius: BorderRadius.all(Radius.circular(8)),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      suffixIcon: Icon(Icons.edit, color: Colors.grey),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
                   // Specialty
+                  const Text(
+                    "Specialty",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     value: _specialty,
                     decoration: const InputDecoration(
-                      labelText: "Specialty",
-                      labelStyle: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF666666),
-                      ),
                       filled: true,
                       fillColor: Color(0xFFF9F9F7),
                       border: OutlineInputBorder(
@@ -780,15 +1025,18 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
                   const SizedBox(height: 16),
 
                   // Location
+                  const Text(
+                    "Location",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _locationController,
                     decoration: const InputDecoration(
-                      labelText: "Location",
-                      labelStyle: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF666666),
-                      ),
                       filled: true,
                       fillColor: Color(0xFFF9F9F7),
                       border: OutlineInputBorder(
@@ -797,19 +1045,11 @@ class _EditPortfolioPageState extends State<EditPortfolioPage> {
                       ),
                       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       prefixIcon: Icon(Icons.location_on_rounded, color: Color(0xFF6B8E23)),
-                      suffixIcon: Icon(Icons.edit, color: Colors.grey),
                     ),
                   ),
-                ],
-              ),
-            ),
+                  const SizedBox(height: 16),
 
-            // Bio Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  //Bio
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

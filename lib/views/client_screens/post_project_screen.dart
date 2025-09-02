@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fyp/services/project_posting_service.dart';
 import 'package:fyp/models/project_model.dart';
+import '../svg_icon.dart';
 
 class PostProject extends StatefulWidget {
   final Function()? onProjectPosted;
@@ -33,12 +34,10 @@ class _PostProjectState extends State<PostProject> {
 
   final ProjectPostingService _projectPostingService = ProjectPostingService();
 
-  // Green theme colors matching the UI with custom dark green
-  static const Color primaryGreen = Color(0xFF7CB342);
+  // Green theme colors matching the bid form
+  static const Color primaryGreen = Color(0xFF6B8E23);
   static const Color lightGreen = Color(0xFF8BC34A);
-  static const Color darkGreen = Color(0xFF6B8E23); // Updated to your specified color
-  static const Color backgroundGreen = Color(0xFFF1F8E9);
-  static const Color accentGreen = Color(0xFFCDDC39);
+  static const Color darkGreen = Color(0xFF6B8E23);
 
   @override
   void initState() {
@@ -70,20 +69,9 @@ class _PostProjectState extends State<PostProject> {
   void showSuccessMessage(String projectId) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text('Project posted successfully! ID: ${projectId.substring(0, 8)}...'),
-            ),
-          ],
-        ),
-        backgroundColor: darkGreen, // Using dark green for success messages
+        content: Text('Project posted successfully! ID: ${projectId.substring(0, 8)}...'),
+        backgroundColor: primaryGreen,
         duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
 
@@ -95,18 +83,9 @@ class _PostProjectState extends State<PostProject> {
   void showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.red.shade600,
+        content: Text(message),
+        backgroundColor: Colors.red,
         duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -213,117 +192,148 @@ class _PostProjectState extends State<PostProject> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: const Icon(Icons.close, color: Colors.black87),
           onPressed: isSubmitting ? null : goBack,
         ),
         title: const Text(
           'Post Project',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
         ),
         centerTitle: false,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.info_outline, color: darkGreen), // Using dark green for info icon
-            onPressed: isSubmitting ? null : () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  title: const Text('Post Project Help'),
-                  content: const Text('Fill in the form to find architects for your project. The more details you provide, the better matches you\'ll receive.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(foregroundColor: darkGreen), // Using dark green for dialog button
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildInfoCard(),
-              const SizedBox(height: 24),
-              _buildProjectTitleSection(),
-              const SizedBox(height: 24),
-              _buildProjectTypeSection(),
-              const SizedBox(height: 24),
-              _buildBudgetSection(),
-              const SizedBox(height: 24),
-              _buildTimelineSection(),
-              const SizedBox(height: 24),
-              _buildLocationSection(),
-              const SizedBox(height: 24),
-              _buildLayoutPreferencesSection(),
-              const SizedBox(height: 24),
-              _buildNotesSection(),
-              const SizedBox(height: 32),
-              _buildSubmitButton(),
-              const SizedBox(height: 40),
-            ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE0E0E0),
+            height: 0.25,
           ),
         ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          _buildProjectHeader(),
+          const SizedBox(height: 24),
+          _buildProjectTitleSection(),
+          const SizedBox(height: 24),
+          _buildProjectTypeSection(),
+          const SizedBox(height: 24),
+          _buildBudgetSection(),
+          const SizedBox(height: 24),
+          _buildTimelineSection(),
+          const SizedBox(height: 24),
+          _buildLocationSection(),
+          const SizedBox(height: 24),
+          _buildLayoutPreferencesSection(),
+          const SizedBox(height: 24),
+          _buildNotesSection(),
+          const SizedBox(height: 32),
+          _buildSubmitButton(),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
 
-  Widget _buildInfoCard() {
+  Widget _buildProjectHeader() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [darkGreen, primaryGreen], // Using dark green as starting color
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: darkGreen.withOpacity(0.3), // Using dark green for shadow
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            'Ready to See Your Ideas Take Shape? Begin Here!',
+        children: [
+          const Text(
+            'Ready to See Your Ideas Take Shape?',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'Fill in the details below to help architects understand your vision better.',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.white70,
+              color: Color(0xFFF4EBD0),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, bool isRequired) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          if (isRequired)
+            const Text(
+              ' *',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.red,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextFormField({
+    required TextEditingController controller,
+    required String hintText,
+    int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+    Widget? prefixIcon,
+    int? maxLength,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        maxLength: maxLength,
+        keyboardType: keyboardType,
+        validator: validator,
+        enabled: !isSubmitting,
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: TextStyle(
+            color: Colors.grey.shade400,
+            fontSize: 14,
+          ),
+          prefixIcon: prefixIcon,
+          contentPadding: const EdgeInsets.all(16),
+          border: InputBorder.none,
+          counterStyle: maxLength != null ? TextStyle(color: Colors.grey.shade600) : null,
+        ),
       ),
     );
   }
@@ -332,46 +342,11 @@ class _PostProjectState extends State<PostProject> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Project Title',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Optional - Auto-generated if left empty',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
+        _buildSectionHeader('Project Title (Optional)', false),
+        _buildTextFormField(
           controller: titleController,
-          enabled: !isSubmitting,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            hintText: 'Enter project title (optional)',
-            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
-            ),
-            prefixIcon: Icon(Icons.title, color: darkGreen), // Using dark green for icon
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          ),
+          hintText: 'Enter project title (auto-generated if left empty)',
+          prefixIcon: Icon(Icons.title_rounded, color: primaryGreen),
         ),
       ],
     );
@@ -381,28 +356,7 @@ class _PostProjectState extends State<PostProject> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Text(
-              'Project Type',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '(Required)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+        _buildSectionHeader('Project Type', true),
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
@@ -411,10 +365,10 @@ class _PostProjectState extends State<PostProject> {
           crossAxisSpacing: 12,
           childAspectRatio: 2.2,
           children: [
-            _buildProjectTypeItem('New Construction', Icons.home_work),
-            _buildProjectTypeItem('Renovation/Remodeling', Icons.build),
-            _buildProjectTypeItem('Interior Design', Icons.design_services),
-            _buildProjectTypeItem('Addition/Expansion', Icons.add_home),
+            _buildProjectTypeItem('New Construction', Icons.home_work_rounded),
+            _buildProjectTypeItem('Renovation/Remodeling', Icons.build_rounded),
+            _buildProjectTypeItem('Interior Design', Icons.design_services_rounded),
+            _buildProjectTypeItem('Addition/Expansion', Icons.add_home_rounded),
           ],
         ),
       ],
@@ -431,37 +385,31 @@ class _PostProjectState extends State<PostProject> {
         });
       },
       child: Container(
+        padding: EdgeInsets.all(10),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? darkGreen : Colors.grey.shade300, // Using dark green for selected border
+            color: isSelected ? primaryGreen : Colors.grey.shade300,
             width: 2,
           ),
-          borderRadius: BorderRadius.circular(12),
-          color: isSelected ? darkGreen.withOpacity(0.1) : Colors.white, // Using dark green for selected background
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: darkGreen.withOpacity(0.2), // Using dark green for shadow
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
+          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? primaryGreen.withOpacity(0.1) : Colors.white,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 18,
-              color: isSelected ? darkGreen : Colors.grey.shade600, // Using dark green for selected icon
+              size: 22,
+              color: isSelected ? primaryGreen : Colors.grey.shade600,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 type,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? darkGreen : Colors.black87, // Using dark green for selected text
+                  color: isSelected ? primaryGreen : Colors.grey.shade600,
                 ),
                 textAlign: TextAlign.left,
               ),
@@ -476,52 +424,11 @@ class _PostProjectState extends State<PostProject> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Text(
-              'Budget Range',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '(Required)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
+        _buildSectionHeader('Budget Range', true),
+        _buildTextFormField(
           controller: budgetController,
-          enabled: !isSubmitting,
-          keyboardType: TextInputType.text,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            hintText: 'e.g., \$50,000 - \$100,000',
-            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
-            ),
-            prefixIcon: Icon(Icons.attach_money, color: darkGreen), // Using dark green for icon
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          ),
+          hintText: 'e.g., PKR 50,000 - 100,000',
+          prefixIcon: Icon(Icons.attach_money_rounded, color: primaryGreen),
         ),
       ],
     );
@@ -531,36 +438,14 @@ class _PostProjectState extends State<PostProject> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Text(
-              'Timeline',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '(Start date required)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+        _buildSectionHeader('Timeline', true),
         Row(
           children: [
             Expanded(
               child: _buildDateField(
-                label: 'Start Date',
+                label: 'Start Date *',
                 value: startDate,
                 onTap: () => _selectDate(context, true),
-                isRequired: true,
               ),
             ),
             const SizedBox(width: 16),
@@ -569,7 +454,6 @@ class _PostProjectState extends State<PostProject> {
                 label: 'End Date (Optional)',
                 value: endDate,
                 onTap: () => _selectDate(context, false),
-                isRequired: false,
               ),
             ),
           ],
@@ -582,17 +466,16 @@ class _PostProjectState extends State<PostProject> {
     required String label,
     required DateTime? value,
     required VoidCallback onTap,
-    required bool isRequired,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Colors.black87,
+            color: Colors.grey.shade800,
           ),
         ),
         const SizedBox(height: 8),
@@ -602,12 +485,12 @@ class _PostProjectState extends State<PostProject> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today, size: 18, color: darkGreen), // Using dark green for calendar icon
+                Icon(Icons.calendar_today_rounded, size: 18, color: primaryGreen),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -616,7 +499,7 @@ class _PostProjectState extends State<PostProject> {
                         : 'Select date',
                     style: TextStyle(
                       fontSize: 14,
-                      color: value != null ? Colors.black87 : Colors.grey.shade500,
+                      color: value != null ? Colors.black87 : Colors.grey.shade400,
                     ),
                   ),
                 ),
@@ -638,7 +521,7 @@ class _PostProjectState extends State<PostProject> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: darkGreen, // Using dark green for date picker primary color
+              primary: primaryGreen,
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.black87,
@@ -675,51 +558,11 @@ class _PostProjectState extends State<PostProject> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Text(
-              'Project Location',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '(Required)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
+        _buildSectionHeader('Project Location', true),
+        _buildTextFormField(
           controller: locationController,
-          enabled: !isSubmitting,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            hintText: 'Enter city, state, or full address',
-            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
-            ),
-            prefixIcon: Icon(Icons.location_on, color: darkGreen), // Using dark green for location icon
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          ),
+          hintText: 'Enter city, state, or full address',
+          prefixIcon: Icon(Icons.location_on_rounded, color: primaryGreen),
         ),
       ],
     );
@@ -738,23 +581,7 @@ class _PostProjectState extends State<PostProject> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Layout Preferences',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Optional - Select all that apply',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 12),
+        _buildSectionHeader('Layout Preferences (Optional)', false),
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -773,19 +600,12 @@ class _PostProjectState extends State<PostProject> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? darkGreen : Colors.white, // Using dark green for selected preference
+                  color: isSelected ? primaryGreen : Colors.white,
                   borderRadius: BorderRadius.circular(25),
                   border: Border.all(
-                    color: isSelected ? darkGreen : Colors.grey.shade300, // Using dark green for selected border
+                    color: isSelected ? primaryGreen : Colors.grey.shade300,
                     width: 2,
                   ),
-                  boxShadow: isSelected ? [
-                    BoxShadow(
-                      color: darkGreen.withOpacity(0.3), // Using dark green for shadow
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ] : null,
                 ),
                 child: Text(
                   preference,
@@ -807,96 +627,43 @@ class _PostProjectState extends State<PostProject> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Additional Notes',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Optional - Describe your vision, specific requirements, or any other details',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
+        _buildSectionHeader('Additional Notes (Optional)', false),
+        _buildTextFormField(
           controller: notesController,
-          enabled: !isSubmitting,
+          hintText: 'Describe your vision, specific requirements, or any other details...',
           maxLines: 4,
           maxLength: 500,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            hintText: 'Tell us more about your project...',
-            hintStyle: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: darkGreen, width: 2), // Using dark green for focused border
-            ),
-            contentPadding: const EdgeInsets.all(16),
-            counterStyle: TextStyle(color: Colors.grey.shade600),
-          ),
         ),
       ],
     );
   }
 
   Widget _buildSubmitButton() {
-    return Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [darkGreen, primaryGreen], // Using dark green as starting color in gradient
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: darkGreen.withOpacity(0.4), // Using dark green for button shadow
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return SizedBox(
+      height: 50,
       child: ElevatedButton(
         onPressed: isSubmitting ? null : submitProject,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
+          backgroundColor: primaryGreen,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
         child: isSubmitting
             ? const SizedBox(
-          width: 24,
-          height: 24,
+          height: 20,
+          width: 20,
           child: CircularProgressIndicator(
-            strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            color: Colors.white,
+            strokeWidth: 2,
           ),
         )
             : const Text(
           'Post Project',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
           ),
         ),
       ),

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/models/bid_model.dart';
 import 'package:fyp/services/project_posting_service.dart';
-import 'package:fyp/models/user_model.dart'; // Import UserModel
+import 'package:fyp/models/user_model.dart';
+import 'package:fyp/views/svg_icon.dart';
 
 class ProjectBidsScreen extends StatefulWidget {
   final String projectId;
@@ -15,15 +16,17 @@ class ProjectBidsScreen extends StatefulWidget {
 
 class _ProjectBidsScreenState extends State<ProjectBidsScreen> {
   late Future<List<Map<String, dynamic>>> _bidsWithArchitectInfoFuture;
+  List<Map<String, dynamic>> allBids = [];
+  List<Map<String, dynamic>> filteredBids = [];
+  String searchQuery = '';
+  String? selectedStatus;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the future to fetch bids along with architect information
     _bidsWithArchitectInfoFuture = _fetchBidsWithArchitectInfo();
   }
 
-  // Asynchronously fetches bids for the current project and then fetches architect details for each bid
   Future<List<Map<String, dynamic>>> _fetchBidsWithArchitectInfo() async {
     try {
       final List<Bid> bids = await ProjectPostingService().getBidsByProject(widget.projectId);
@@ -36,6 +39,15 @@ class _ProjectBidsScreenState extends State<ProjectBidsScreen> {
           'architectName': architect?.username ?? 'Unknown Architect',
         });
       }
+
+      // Sort bids by submission date (newest first)
+      bidsWithInfo.sort((a, b) => (b['bid'] as Bid).submissionDate.compareTo((a['bid'] as Bid).submissionDate));
+
+      setState(() {
+        allBids = bidsWithInfo;
+        filteredBids = bidsWithInfo;
+      });
+
       return bidsWithInfo;
     } catch (e) {
       print('Error fetching bids with architect info: $e');
@@ -48,79 +60,331 @@ class _ProjectBidsScreenState extends State<ProjectBidsScreen> {
     }
   }
 
-  // Method to refresh bids after a status update
+  void _filterBids() {
+    setState(() {
+      filteredBids = allBids.where((bidData) {
+        final Bid bid = bidData['bid'];
+        final String architectName = bidData['architectName'];
+
+        final matchesSearch = searchQuery.isEmpty ||
+            architectName.toLowerCase().contains(searchQuery.toLowerCase()) ||
+            bid.summary.toLowerCase().contains(searchQuery.toLowerCase());
+
+        final matchesStatus = selectedStatus == null ||
+            bid.getStatusText().toLowerCase() == selectedStatus!.toLowerCase();
+
+        return matchesSearch && matchesStatus;
+      }).toList();
+    });
+  }
+
   void _refreshBids() {
     setState(() {
       _bidsWithArchitectInfoFuture = _fetchBidsWithArchitectInfo();
     });
   }
 
+  void _showStatusFilter() {
+    final statuses = ['Pending', 'Active', 'Rejected'];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter by Status',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('All Statuses'),
+              leading: Radio<String?>(
+                value: null,
+                groupValue: selectedStatus,
+                onChanged: (value) {
+                  setState(() {
+                    selectedStatus = value;
+                  });
+                  _filterBids();
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+            ...statuses.map((status) => ListTile(
+              title: Text(status),
+              leading: Radio<String?>(
+                value: status,
+                groupValue: selectedStatus,
+                onChanged: (value) {
+                  setState(() {
+                    selectedStatus = value;
+                  });
+                  _filterBids();
+                  Navigator.pop(context);
+                },
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatCurrency(double amount) {
+    if (amount >= 1000000) {
+      return 'PKR ${(amount / 1000000).toStringAsFixed(1)}M';
+    } else if (amount >= 1000) {
+      return 'PKR ${(amount / 1000).toStringAsFixed(0)}K';
+    } else {
+      return 'PKR ${amount.toStringAsFixed(0)}';
+    }
+  }
+
+  String _getTimeAgo(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  Color _getStatusColor(BidStatus status) {
+    switch (status) {
+      case BidStatus.pending:
+        return Colors.orange;
+      case BidStatus.active:
+        return const Color(0xFF6B8E23);
+      case BidStatus.rejected:
+        return Colors.red;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Define the primary color based on the provided green for consistent UI
-    const Color primaryGreen = Color(0xFF6B8E23);
-
     return Scaffold(
+      backgroundColor: const Color(0xFFF9F9F7),
       appBar: AppBar(
-        title: Text('Bids for "${widget.projectTitle}"', style: const TextStyle(color: Colors.white)),
-        backgroundColor: primaryGreen, // Apply the green color to the AppBar
-        iconTheme: const IconThemeData(color: Colors.white), // Ensure back arrow is white
+        title: Text(
+          'Bids for "${widget.projectTitle}"',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.black),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            color: const Color(0xFFE0E0E0),
+            height: 0.25,
+          ),
+        ),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _bidsWithArchitectInfoFuture, // The future that fetches bids with architect info
-        builder: (context, snapshot) {
-          // Display a loading indicator while data is being fetched
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: primaryGreen)); // Green loading indicator
-          }
-          // Display an error message if fetching fails
-          else if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error: ${snapshot.error}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.redAccent, fontSize: 16),
-                ),
-              ),
-            );
-          }
-          // Display a message if no bids are found for the project
-          else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.gavel_outlined, size: 80, color: primaryGreen.withOpacity(0.5)), // Faded green icon
-                  const SizedBox(height: 16),
-                  Text(
-                    'No bids submitted for this project yet.',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
+      body: Column(
+        children: [
+          // Search & Filter Section
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // Search input
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9F9F7),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
-              ),
-            );
-          }
-          // Display the list of bids if data is successfully fetched
-          else {
-            return ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                final bidData = snapshot.data![index];
-                final Bid bid = bidData['bid'];
-                final String architectName = bidData['architectName'];
-                return BidTile(
-                  bid: bid,
-                  architectName: architectName, // Pass architect name
-                  onStatusUpdate: _refreshBids, // Pass refresh callback
-                );
+                  child: TextField(
+                    onChanged: (value) {
+                      searchQuery = value;
+                      _filterBids();
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search bids by architect or summary...',
+                      hintStyle: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 10),
+                        child: SvgIcon(
+                          iconName: 'search',
+                          size: 20,
+                          color: const Color(0xFF6B8E23),
+                        ),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+
+                // Filter chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    child: Row(
+                      children: [
+                        _buildFilterChip("Status", 'calendar', _showStatusFilter, selectedStatus),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Bids List
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _bidsWithArchitectInfoFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: Color(0xFF6B8E23)));
+                }
+                else if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SvgIcon(
+                            iconName: 'alert',
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error loading bids',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${snapshot.error}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                else if (filteredBids.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgIcon(
+                          iconName: 'document',
+                          size: 64,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          allBids.isEmpty ? 'No bids submitted yet' : 'No bids match your search',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        if (allBids.isEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Architects will be able to submit bids for this project',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }
+                else {
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      await _fetchBidsWithArchitectInfo();
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16.0),
+                      itemCount: filteredBids.length,
+                      itemBuilder: (context, index) {
+                        final bidData = filteredBids[index];
+                        final Bid bid = bidData['bid'];
+                        final String architectName = bidData['architectName'];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: BidTile(
+                            bid: bid,
+                            architectName: architectName,
+                            onStatusUpdate: _refreshBids,
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }
               },
-            );
-          }
-        },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String iconName, VoidCallback onTap, String? selectedValue) {
+    final bool isActive = selectedValue != null;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF6B8E23) : const Color(0xFFF9F9F7),
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Row(
+          children: [
+            SvgIcon(
+              iconName: iconName,
+              size: 16,
+              color: isActive ? Colors.white : Colors.black87,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              selectedValue != null ? '$label: $selectedValue' : label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isActive ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -128,13 +392,13 @@ class _ProjectBidsScreenState extends State<ProjectBidsScreen> {
 
 class BidTile extends StatefulWidget {
   final Bid bid;
-  final String architectName; // New parameter for architect name
-  final VoidCallback onStatusUpdate; // Callback to notify parent about status change
+  final String architectName;
+  final VoidCallback onStatusUpdate;
 
   const BidTile({
     Key? key,
     required this.bid,
-    required this.architectName, // Mark as required
+    required this.architectName,
     required this.onStatusUpdate,
   }) : super(key: key);
 
@@ -143,42 +407,61 @@ class BidTile extends StatefulWidget {
 }
 
 class _BidTileState extends State<BidTile> {
-  late Bid _currentBid; // To hold the mutable bid state
+  late Bid _currentBid;
 
   @override
   void initState() {
     super.initState();
-    _currentBid = widget.bid; // Initialize with the passed bid
+    _currentBid = widget.bid;
   }
 
-  // Helper function to determine the color of the bid status text
-  Color _getBidStatusColor(BidStatus status) {
-    const Color primaryGreen = Color(0xFF6B8E23); // Define green color locally for consistency
+  Color _getStatusColor(BidStatus status) {
     switch (status) {
-      case BidStatus.active:
-        return primaryGreen; // Active bids in primary green
       case BidStatus.pending:
-        return Colors.blue; // Pending bids in blue
+        return Colors.orange;
+      case BidStatus.active:
+        return const Color(0xFF6B8E23);
       case BidStatus.rejected:
-        return Colors.red; // Rejected bids in red
+        return Colors.red;
     }
   }
 
-  // Function to update bid status in Firebase
+  String _formatCurrency(double amount) {
+    if (amount >= 1000000) {
+      return 'PKR ${(amount / 1000000).toStringAsFixed(1)}M';
+    } else if (amount >= 1000) {
+      return 'PKR ${(amount / 1000).toStringAsFixed(0)}K';
+    } else {
+      return 'PKR ${amount.toStringAsFixed(0)}';
+    }
+  }
+
+  String _getTimeAgo(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
   Future<void> _updateBidStatus(BidStatus newStatus) async {
     try {
-      // Update the bid in Firebase
       await ProjectPostingService().updateBidStatus(
-        widget.bid.id, // Use the original bid ID
+        widget.bid.id,
         newStatus,
       );
 
-      // Update local state to reflect the change immediately
       setState(() {
         _currentBid = _currentBid.copyWith(status: newStatus);
       });
 
-      // Notify the parent widget to refresh the list
       widget.onStatusUpdate();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -194,181 +477,257 @@ class _BidTileState extends State<BidTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 3, // Add a subtle shadow to the card
-      margin: const EdgeInsets.only(bottom: 12.0), // Spacing between cards
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10), // Rounded corners for the card
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            spreadRadius: 0,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Bid from Architect Name
-            Row(
-              children: [
-                const Icon(Icons.person_outline, color: Color(0xFF2C3E50), size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Architect: ${widget.architectName}', // Display architect Name
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C3E50), // Dark text color for contrast
-                    ),
-                    overflow: TextOverflow.ellipsis, // Handle long names
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 16, thickness: 1), // Separator
-
-            // Bid Cost
-            _buildDetailRow(
-              icon: Icons.attach_money,
-              label: 'Cost',
-              value: '\$${_currentBid.cost.toStringAsFixed(2)}',
-            ),
-
-            // Bid Timeline
-            _buildDetailRow(
-              icon: Icons.access_time,
-              label: 'Timeline',
-              value: _currentBid.timeline, // This will now correctly wrap
-            ),
-
-            // Bid Status
-            _buildDetailRow(
-              icon: Icons.info_outline,
-              label: 'Status',
-              value: _currentBid.getStatusText(),
-              valueColor: _getBidStatusColor(_currentBid.status),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Bid Summary
-            Text(
-              'Summary:',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _currentBid.summary,
-              style: TextStyle(fontSize: 15, color: Colors.grey[700]),
-            ),
-
-            if (_currentBid.additionalComments != null && _currentBid.additionalComments!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Additional Comments:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _currentBid.additionalComments!,
-                style: TextStyle(fontSize: 15, color: Colors.grey[700]),
-              ),
-            ],
-
-            const SizedBox(height: 16),
-
-            // Submission Date
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Text(
-                'Submitted: ${_currentBid.submissionDate.day}/${_currentBid.submissionDate.month}/${_currentBid.submissionDate.year}',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _currentBid.status == BidStatus.active
-                        ? null // Disable if already active
-                        : () => _updateBidStatus(BidStatus.active),
-                    icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-                    label: const Text('Accept Bid', style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _getBidStatusColor(BidStatus.active),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      disabledBackgroundColor: Colors.grey, // Grey out when disabled
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _currentBid.status == BidStatus.rejected
-                        ? null // Disable if already rejected
-                        : () => _updateBidStatus(BidStatus.rejected),
-                    icon: const Icon(Icons.cancel_outlined, color: Colors.white),
-                    label: const Text('Reject Bid', style: TextStyle(color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _getBidStatusColor(BidStatus.rejected),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      disabledBackgroundColor: Colors.grey, // Grey out when disabled
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper widget for consistent detail rows
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    Color valueColor = Colors.black87,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFF6B8E23), size: 18), // Primary green for icons
-          const SizedBox(width: 12),
-          Expanded( // Use Expanded to prevent overflow for long values
+          // Header with architect info and status
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
+            ),
+            child: Row(
+              children: [
+                // Architect avatar
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6B8E23).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Center(
+                    child: Text(
+                      widget.architectName.isNotEmpty
+                          ? widget.architectName[0].toUpperCase()
+                          : 'A',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF6B8E23),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Architect name and submission time
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.architectName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Submitted ${_getTimeAgo(_currentBid.submissionDate)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(_currentBid.status),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _currentBid.getStatusText(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Bid details
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Cost and Timeline
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bid Amount',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _formatCurrency(_currentBid.cost),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF6B8E23),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Timeline',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _currentBid.timeline,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Summary
                 Text(
-                  label,
+                  'Summary',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 8),
                 Text(
-                  value,
+                  _currentBid.summary,
                   style: TextStyle(
-                    fontSize: 16,
-                    color: valueColor,
-                    fontWeight: FontWeight.normal,
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
                   ),
+                ),
+
+                // Additional Comments
+                if (_currentBid.additionalComments != null && _currentBid.additionalComments!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Additional Comments',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _currentBid.additionalComments!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _currentBid.status == BidStatus.active
+                            ? null
+                            : () => _updateBidStatus(BidStatus.active),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6B8E23),
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: Text(
+                          _currentBid.status == BidStatus.active ? 'Accepted' : 'Accept Bid',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _currentBid.status == BidStatus.rejected
+                            ? null
+                            : () => _updateBidStatus(BidStatus.rejected),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: BorderSide(
+                            color: _currentBid.status == BidStatus.rejected
+                                ? Colors.grey.shade300
+                                : Colors.red,
+                          ),
+                          disabledForegroundColor: Colors.grey.shade400,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: Text(
+                          _currentBid.status == BidStatus.rejected ? 'Rejected' : 'Reject Bid',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -1,0 +1,1196 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:intl/intl.dart';
+import '../../services/auth_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fyp/services/cloudinary_service.dart';
+import 'package:fyp/services/user_service.dart';
+
+class ProfileSettingsScreen extends StatefulWidget {
+  final File? currentProfileImage;
+  final Function(File?)? onProfileImageChanged;
+
+  const ProfileSettingsScreen({
+    super.key,
+    this.currentProfileImage,
+    this.onProfileImageChanged,
+  });
+
+  @override
+  State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
+}
+
+class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final AuthService _authService = AuthService();
+  final databaseRef = FirebaseDatabase.instance.ref();
+  User? get user => _authService.currentUser;
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  final UserService _userService = UserService();
+  bool _uploadingImage = false;
+  String? _uploadError;
+  String? _currentAvatarUrl;
+
+
+  // Profile Info
+  String name = '';
+  String username = '';
+  String email = '';
+  String phone = '';
+  String? dateOfBirth;
+  String gender = 'Male';
+  bool formChanged = false;
+  bool isEditingPersonalInfo = false;
+
+  // Password Management
+  final TextEditingController _currentPasswordController = TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmNewPasswordController = TextEditingController();
+  bool _obscureCurrentPassword = true;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmNewPassword = true;
+  bool isEditingPassword = false;
+
+  // Notification Toggles
+  bool emailNotify = true;
+  bool pushNotify = true;
+  bool smsNotify = false;
+  bool marketingNotify = false;
+
+  // UI State
+  bool isLoading = false;
+  String loadingText = '';
+  File? imageFile;
+  File? savedImageFile;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    savedImageFile = widget.currentProfileImage; // Initialize with current image
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    print('------DEBUG: Starting _loadProfile');
+    if (user == null) {
+      print('------DEBUG: User is null');
+      return;
+    }
+
+    print('------DEBUG: User found - UID: ${user!.uid}');
+    setState(() => isLoading = true);
+
+    try {
+      print('------DEBUG: Fetching data from Firebase...');
+      final snapshot = await databaseRef.child('users/${user!.uid}').get();
+
+      if (snapshot.exists) {
+        print('------DEBUG: Data exists in Firebase');
+        final data = Map<String, dynamic>.from(snapshot.value as Map<dynamic, dynamic>);
+        print('-------DEBUG: Retrieved data: $data');
+
+        setState(() {
+          name = data['name']?.toString() ?? '';
+          username = data['username']?.toString() ?? '';
+          phone = data['phoneNumber']?.toString() ?? '';
+          dateOfBirth = data['dateOfBirth']?.toString();
+          _currentAvatarUrl = data['avatarUrl']?.toString();
+
+          String genderFromDB = data['gender']?.toString() ?? 'male';
+          gender = _capitalizeGender(genderFromDB);
+
+          final notifications = data['notifications'] != null
+              ? Map<String, dynamic>.from(data['notifications'] as Map<dynamic, dynamic>)
+              : <String, dynamic>{};
+          emailNotify = notifications['email'] ?? true;
+          pushNotify = notifications['push'] ?? true;
+          smsNotify = notifications['sms'] ?? false;
+          marketingNotify = notifications['marketing'] ?? false;
+        });
+
+        print('------DEBUG: State updated with Firebase data');
+        print('------DEBUG: Avatar URL: $_currentAvatarUrl');
+      } else {
+        print('-------DEBUG: No data exists for this user in Firebase');
+        setState(() {
+          name = user!.displayName ?? '';
+          _currentAvatarUrl = null;
+        });
+      }
+
+      email = user!.email ?? '';
+      print('------DEBUG: Email from Auth: $email');
+
+    } catch (e) {
+      print('------DEBUG: Error loading profile: $e');
+      setState(() {
+        errorMessage = 'Failed to load profile: $e';
+      });
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  String _capitalizeGender(String genderFromDB) {
+    switch (genderFromDB.toLowerCase()) {
+      case 'male':
+        return 'Male';
+      case 'female':
+        return 'Female';
+      case 'other':
+        return 'Other';
+      default:
+        return 'Male';
+    }
+  }
+
+  Future<void> _pickImage() async {
+    if (!isEditingPersonalInfo) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (picked != null) {
+        await _uploadImageToCloudinary(File(picked.path));
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+      setState(() {
+        _uploadError = 'Error selecting image: $e';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error selecting image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _uploadImageToCloudinary(File imageFile) async {
+    if (user == null) return;
+
+    setState(() {
+      _uploadingImage = true;
+      _uploadError = null;
+      formChanged = true;
+    });
+
+    try {
+      print('🔄 Starting image upload...');
+
+      // Delete old image if exists
+      if (_currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty) {
+        final oldPublicId = _cloudinaryService.extractPublicId(_currentAvatarUrl!);
+        if (oldPublicId != null) {
+          await _cloudinaryService.deleteImage(oldPublicId);
+        }
+      }
+
+      // Upload new image
+      final response = await _cloudinaryService.uploadImage(
+        imageFile: imageFile,
+        userId: user!.uid,
+        folder: 'user_profiles',
+      );
+
+      if (response != null && response.isSuccessful) {
+        final newAvatarUrl = response.secureUrl;
+
+        // Update avatar URL in Firebase
+        await _userService.updateUserAvatar(user!.uid, newAvatarUrl!);
+
+        setState(() {
+          _currentAvatarUrl = newAvatarUrl;
+          _uploadingImage = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile image updated successfully!'),
+            backgroundColor: Color(0xFF6B8E23),
+          ),
+        );
+
+        print('✅ Profile image updated successfully!');
+      } else {
+        throw Exception('Upload failed: ${response?.error ?? 'Unknown error'}');
+      }
+    } catch (e) {
+      print('❌ Error uploading image: $e');
+      setState(() {
+        _uploadError = 'Failed to upload image: $e';
+        _uploadingImage = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to upload image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _removeProfileImage() async {
+    if (user == null || _currentAvatarUrl == null) return;
+
+    try {
+      setState(() => _uploadingImage = true);
+
+      // Delete from Cloudinary
+      final publicId = _cloudinaryService.extractPublicId(_currentAvatarUrl!);
+      if (publicId != null) {
+        await _cloudinaryService.deleteImage(publicId);
+      }
+
+      // Remove from Firebase
+      await _userService.removeUserAvatar(user!.uid);
+
+      setState(() {
+        _currentAvatarUrl = null;
+        _uploadingImage = false;
+        formChanged = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile image removed successfully!'),
+          backgroundColor: Color(0xFF6B8E23),
+        ),
+      );
+    } catch (e) {
+      print('❌ Error removing image: $e');
+      setState(() => _uploadingImage = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to remove image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _savePersonalInfo() async {
+    print('------DEBUG: Starting _savePersonalInfo');
+
+    List<String> errors = [];
+    if (name.trim().isEmpty) errors.add('Full Name is required');
+    if (username.trim().isEmpty) errors.add('Username is required');
+    if (phone.trim().isEmpty) errors.add('Phone Number is required');
+
+    if (errors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errors.first), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not authenticated')),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      loadingText = 'Saving changes...';
+      errorMessage = null;
+    });
+
+    try {
+      final dataToSave = {
+        'name': name.trim(),
+        'username': username.trim(),
+        'phoneNumber': phone.trim(),
+        'dateOfBirth': dateOfBirth,
+        'gender': gender.toLowerCase(),
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      await databaseRef.child('users/${user!.uid}').update(dataToSave);
+
+      if (user!.displayName != name.trim()) {
+        await user!.updateDisplayName(name.trim());
+      }
+
+      setState(() {
+        isLoading = false;
+        formChanged = false;
+        isEditingPersonalInfo = false;
+        errorMessage = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Personal Information updated successfully!'),
+          backgroundColor: Color(0xFF6B8E23),
+        ),
+      );
+
+      await _loadProfile();
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Failed to update profile: $e';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update profile: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showImageOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _takePhoto();
+                },
+              ),
+              if (_currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeProfileImage();
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.cancel),
+                title: const Text('Cancel'),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _takePhoto() async {
+    if (!isEditingPersonalInfo) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (picked != null) {
+        await _uploadImageToCloudinary(File(picked.path));
+      }
+    } catch (e) {
+      print('Error taking photo: $e');
+      setState(() {
+        _uploadError = 'Error taking photo: $e';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error taking photo: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  //Method to change password
+  Future<void> _changePassword() async {
+    print('------DEBUG: Starting _changePassword');
+
+    if (_currentPasswordController.text.isEmpty ||
+        _newPasswordController.text.isEmpty ||
+        _confirmNewPasswordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all password fields.')),
+      );
+      return;
+    }
+
+    if (_newPasswordController.text != _confirmNewPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New passwords do not match.')),
+      );
+      return;
+    }
+
+    if (_newPasswordController.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('New password must be at least 6 characters long.')),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      loadingText = 'Changing password...';
+      errorMessage = null;
+    });
+
+    try {
+      // Re-authenticate user before changing password
+      print('------DEBUG: Re-authenticating user...');
+      bool success = await _reAuthenticateUser();
+
+      if (success) {
+        print('-------DEBUG: Re-authentication successful, changing password...');
+        await user!.updatePassword(_newPasswordController.text);
+
+        // Clear password fields
+        _currentPasswordController.clear();
+        _newPasswordController.clear();
+        _confirmNewPasswordController.clear();
+
+        setState(() {
+          isEditingPassword = false;
+          formChanged = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Password updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        print('--------DEBUG: Password changed successfully');
+      } else {
+        print('--------DEBUG: Re-authentication failed');
+        setState(() {
+          errorMessage = 'Password change failed: Please enter the correct current password.';
+        });
+      }
+
+    } catch (e) {
+      print('-------DEBUG: Error changing password: $e');
+      setState(() {
+        errorMessage = 'Failed to update password: $e';
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update password: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        isLoading = false;
+        loadingText = '';
+      });
+    }
+  }
+
+  //Method to save notification settings
+  Future<void> _saveNotificationSettings() async {
+    print('------DEBUG: Saving notification settings');
+
+    setState(() {
+      isLoading = true;
+      loadingText = 'Saving Notification changes...';
+      errorMessage = null;
+    });
+
+    try {
+      final notificationData = {
+        'notifications': {
+          'email': emailNotify,
+          'push': pushNotify,
+          'sms': smsNotify,
+          'marketing': marketingNotify,
+        },
+        'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      };
+
+      await databaseRef.child('users/${user!.uid}').update(notificationData);
+
+      setState(() => isLoading = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Notification settings updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      print('------DEBUG: Notification settings saved successfully');
+
+    } catch (e) {
+      print('-------DEBUG: Error saving notifications: $e');
+      setState(() {
+        isLoading = false;
+        loadingText = '';
+        errorMessage = 'Failed to update notifications: $e';
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update notifications: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return '';
+    try {
+      DateTime date;
+      if (RegExp(r'^\d+$').hasMatch(dateString)) {
+        date = DateTime.fromMillisecondsSinceEpoch(int.parse(dateString));
+      } else {
+        date = DateTime.parse(dateString);
+      }
+      return DateFormat('MMM dd, yyyy').format(date);
+    } catch (e) {
+      print('Error parsing date: $e');
+      return dateString;
+    }
+  }
+
+  Widget _buildTextField(String label, String value, Function(String) onChanged,
+      {bool enabled = true,
+        TextInputType type = TextInputType.text,
+        Widget? suffixIcon,
+        bool isRequired = true}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+              if (isRequired && enabled)
+                const Text(
+                  ' *',
+                  style: TextStyle(color: Colors.red, fontSize: 14),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            initialValue: value,
+            enabled: enabled,
+            keyboardType: type,
+            onChanged: (val) {
+              onChanged(val);
+              if (isEditingPersonalInfo) {
+                setState(() => formChanged = true);
+              }
+            },
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFF6B8E23), width: 2),
+              ),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: !enabled,
+              fillColor: enabled ? null : Colors.grey.shade100,
+              suffixIcon: suffixIcon,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPasswordField(String label, TextEditingController controller,
+      bool obscureText, Function() toggleVisibility) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: controller,
+            enabled: isEditingPassword,
+            obscureText: obscureText,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              suffixIcon: IconButton(
+                icon:
+                Icon(obscureText ? Icons.visibility_off : Icons.visibility),
+                onPressed: toggleVisibility,
+              ),
+            ),
+            onChanged: (val) {
+              if (isEditingPassword) {
+                setState(() => formChanged = true);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggle(
+      String label, String description, bool value, Function(bool) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  description,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: (val) {
+              onChanged(val);
+              _saveNotificationSettings();
+            },
+            activeColor: const Color(0xFF6B8E23),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenderOption(String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Radio<String>(
+          value: label,
+          groupValue: gender,
+          activeColor: const Color(0xFF6B8E23),
+          onChanged: isEditingPersonalInfo
+              ? (val) {
+            setState(() {
+              gender = val!;
+              formChanged = true;
+            });
+          }
+              : null,
+        ),
+        Text(label),
+      ],
+    );
+  }
+
+  //Method to re-authenticate
+  Future<bool> _reAuthenticateUser() async {
+    print('------DEBUG: Starting re-authentication');
+    final formKey = GlobalKey<FormState>();
+    String? password;
+    bool result = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Re-authenticate'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Enter your current password',
+              border: OutlineInputBorder(),
+            ),
+            validator: (val) {
+              if (val == null || val.isEmpty) return 'Password is required';
+              return null;
+            },
+            onChanged: (val) => password = val,
+            autofocus: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              print('-------DEBUG: Re-authentication cancelled');
+              Navigator.of(context).pop();
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() ?? false) {
+                try {
+                  print('-------DEBUG: Attempting re-authentication...');
+                  final credential = EmailAuthProvider.credential(
+                    email: user!.email!,
+                    password: password!,
+                  );
+                  await user!.reauthenticateWithCredential(credential);
+                  result = true;
+                  print('------DEBUG: Re-authentication successful');
+                  Navigator.of(context).pop();
+                } on FirebaseAuthException catch (e) {
+                  print("-------DEBUG: Re-authentication error: ${e.message}");
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Authentication failed: ${e.message}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+      backgroundColor: Colors.white,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: const Text(
+        'Profile Settings',
+        style: TextStyle(
+          color: Color(0xFF333333),
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(
+          color: const Color(0xFFE0E0E0),
+          height: 0.25,
+        ),
+      ),
+    ),
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: _loadProfile,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: isLoading && name.isEmpty && email.isEmpty
+                  ? SizedBox(
+                height: MediaQuery.of(context).size.height - 100,
+                child: const Center(
+                    child: Text('Loading profile data...')),
+              )
+                  : Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 96,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: const Color(0xFF6B8E23),
+                                  width: 2
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(48),
+                              child: _uploadingImage
+                                  ? Container(
+                                color: Colors.grey.shade200,
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                                  : _currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty
+                                  ? CachedNetworkImage(
+                                imageUrl: _cloudinaryService.getOptimizedImageUrl(
+                                  _currentAvatarUrl!,
+                                  width: 192,
+                                  height: 192,
+                                ),
+                                width: 96,
+                                height: 96,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  color: Colors.grey.shade200,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Container(
+                                  color: Colors.grey.shade300,
+                                  child: const Icon(
+                                    Icons.person,
+                                    size: 48,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                                  : Container(
+                                width: 96,
+                                height: 96,
+                                color: Colors.grey.shade300,
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Edit overlay
+                          if (isEditingPersonalInfo && !_uploadingImage)
+                            Positioned.fill(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(48),
+                                  onTap: () => _showImageOptions(),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black.withOpacity(0.3),
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.camera_alt,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Upload progress indicator
+                          if (_uploadingImage)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.black.withOpacity(0.5),
+                                ),
+                                child: const Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        strokeWidth: 2,
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Uploading...',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Personal Information',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                        TextButton(
+                          onPressed: () async {
+                            print('------DEBUG: Edit/Save button pressed. isEditingPersonalInfo: $isEditingPersonalInfo');
+                            if (isEditingPersonalInfo) {
+                              await _savePersonalInfo();
+                            } else {
+                              setState(() {
+                                isEditingPersonalInfo = true;
+                                formChanged = false;
+                              });
+                              print('-------DEBUG: Editing mode enabled');
+                            }
+                          },
+                          child: Text(
+                            isEditingPersonalInfo ? 'Save' : 'Edit',
+                            style: const TextStyle(
+                                color: Color(0xFF6B8E23)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTextField('Username', username, (val) => setState(() => username = val), enabled: isEditingPersonalInfo),
+                    _buildTextField('Full Name', name, (val) => setState(() => name = val), enabled: isEditingPersonalInfo),
+                    _buildTextField('Phone Number', phone, (val) => setState(() => phone = val), type: TextInputType.phone, enabled: isEditingPersonalInfo),
+
+                    // Date of Birth field
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 15),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Date of Birth', style: TextStyle(fontSize: 14, color: Colors.black87)),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: isEditingPersonalInfo ? () async {
+                              DateTime initialDate = DateTime(2000, 1, 1);
+                              if (dateOfBirth != null && dateOfBirth!.isNotEmpty) {
+                                try {
+                                  if (RegExp(r'^\d+$').hasMatch(dateOfBirth!)) {
+                                    initialDate = DateTime.fromMillisecondsSinceEpoch(int.parse(dateOfBirth!));
+                                  } else {
+                                    initialDate = DateTime.parse(dateOfBirth!);
+                                  }
+                                } catch (e) {
+                                  print('Error parsing initial date: $e');
+                                }
+                              }
+
+                              final DateTime? picked = await showDatePicker(
+                                context: context,
+                                initialDate: initialDate,
+                                firstDate: DateTime(1920),
+                                lastDate: DateTime.now(),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: const ColorScheme.light(
+                                        primary: Color(0xFF6B8E23),
+                                        onPrimary: Colors.white,
+                                        onSurface: Colors.black,
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  dateOfBirth = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                  formChanged = true;
+                                });
+                              }
+                            } : null,
+                            child: AbsorbPointer(
+                              child: TextFormField(
+                                readOnly: true,
+                                controller: TextEditingController(
+                                  text: dateOfBirth != null && dateOfBirth!.isNotEmpty
+                                      ? _formatDate(dateOfBirth)
+                                      : '',
+                                ),
+                                enabled: isEditingPersonalInfo,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: Colors.grey.shade300),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  filled: !isEditingPersonalInfo,
+                                  fillColor: isEditingPersonalInfo ? null : Colors.grey.shade100,
+                                  suffixIcon: isEditingPersonalInfo ? const Icon(Icons.calendar_today_outlined) : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    const Text('Gender', style: TextStyle(fontSize: 14, color: Colors.black87)),
+                    Row(
+                      children: [
+                        _buildGenderOption('Male'),
+                        _buildGenderOption('Female'),
+                        _buildGenderOption('Other'),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Password Management',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        TextButton(
+                          onPressed: () async {
+                            print('--------DEBUG: Password Edit/Save button pressed. isEditingPassword: $isEditingPassword');
+                            if (isEditingPassword) {
+                              await _changePassword();
+                            } else {
+                              setState(() {
+                                isEditingPassword = true;
+                                formChanged = false;
+                              });
+                              print('--------DEBUG: Password editing mode enabled');
+                            }
+                          },
+                          child: Text(
+                            isEditingPassword ? 'Save' : 'Edit',
+                            style: const TextStyle(color: Color(0xFF6B8E23)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPasswordField('Current Password', _currentPasswordController, _obscureCurrentPassword, () {
+                      setState(() => _obscureCurrentPassword = !_obscureCurrentPassword);
+                    }),
+                    _buildPasswordField('New Password', _newPasswordController, _obscureNewPassword, () {
+                      setState(() => _obscureNewPassword = !_obscureNewPassword);
+                    }),
+                    _buildPasswordField('Confirm New Password', _confirmNewPasswordController, _obscureConfirmNewPassword, () {
+                      setState(() => _obscureConfirmNewPassword = !_obscureConfirmNewPassword);
+                    }),
+
+                    const SizedBox(height: 24),
+                    const Text('Notification Preferences', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    _buildToggle('Email Notifications', 'Receive updates and alerts via email', emailNotify, (val) => setState(() => emailNotify = val)),
+                    _buildToggle('Push Notifications', 'Receive alerts on your device', pushNotify, (val) => setState(() => pushNotify = val)),
+                    _buildToggle('SMS Notifications', 'Receive text messages for important updates', smsNotify, (val) => setState(() => smsNotify = val)),
+                    _buildToggle('Marketing Communications', 'Receive promotional offers and newsletters', marketingNotify, (val) => setState(() => marketingNotify = val)),
+
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B8E23)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(loadingText, style: const TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
+          if (errorMessage != null)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                color: Colors.red.shade100,
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmNewPasswordController.dispose();
+    super.dispose();
+  }
+}

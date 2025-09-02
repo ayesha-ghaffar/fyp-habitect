@@ -48,6 +48,51 @@ class UserService {
     }
   }
 
+// Method to update user's avatar URL
+  Future<void> updateUserAvatar(String uid, String avatarUrl) async {
+    try {
+      print('🔄 Updating avatar URL for user: $uid');
+      await _usersRef.child(uid).update({
+        'avatarUrl': avatarUrl,
+        'updatedAt': ServerValue.timestamp,
+      });
+      print('✅ Avatar URL updated successfully');
+    } catch (e) {
+      print('❌ Error updating avatar URL: $e');
+      rethrow;
+    }
+  }
+
+// Method to remove user's avatar
+  Future<void> removeUserAvatar(String uid) async {
+    try {
+      print('🔄 Removing avatar for user: $uid');
+      await _usersRef.child(uid).update({
+        'avatarUrl': '',
+        'updatedAt': ServerValue.timestamp,
+      });
+      print('✅ Avatar removed successfully');
+    } catch (e) {
+      print('❌ Error removing avatar: $e');
+      rethrow;
+    }
+  }
+
+  // Method to get user's current avatar URL
+  Future<String?> getUserAvatarUrl(String uid) async {
+    try {
+      final snapshot = await _usersRef.child(uid).child('avatarUrl').get();
+      if (snapshot.exists && snapshot.value != null) {
+        String avatarUrl = snapshot.value.toString();
+        return avatarUrl.isNotEmpty ? avatarUrl : null;
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error getting avatar URL: $e');
+      return null;
+    }
+  }
+
 
   // Method to update a user's online status
   Future<void> updateOnlineStatus(bool isOnline) async {

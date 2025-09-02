@@ -6,6 +6,7 @@ import 'package:fyp/views/client_screens/chat_screen.dart';
 import 'package:fyp/models/chatroom_model.dart';
 import 'package:fyp/services/user_service.dart';
 import 'package:fyp/models/user_model.dart';
+import 'package:fyp/views/svg_icon.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);
@@ -18,6 +19,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   final ChatService _chatService = ChatService();
   late UserService _userService;
   String? _currentUserId;
+  String searchQuery = '';
 
   // Theme colors
   static const Color primaryGreen = Color(0xFF6B8E23);
@@ -57,61 +59,98 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          'Chats',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
+      backgroundColor: const Color(0xFFF9F9F7),
+      body: Column(
+        children: [
+          // Search & Title Section (replacing AppBar)
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.all(16.0), // Top padding for status bar
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Search input
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9F9F7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search conversations...',
+                      hintStyle: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Padding(
+                        padding: const EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 10),
+                        child: SvgIcon(
+                          iconName: 'search',
+                          size: 20,
+                          color: primaryGreen,
+                        ),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        backgroundColor: primaryGreen,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // Implementing search functionality
-              _showSearchDialog();
-            },
+
+          // Chat List
+          Expanded(
+            child: _currentUserId == null
+                ? const Center(child: Text('Please log in to view chats'))
+                : StreamBuilder<List<ChatRoom>>(
+              stream: _chatService.getUserChatRooms(_currentUserId!),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: primaryGreen,
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  print('Error fetching chat rooms: ${snapshot.error}');
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                List<ChatRoom> chatRooms = snapshot.data!;
+
+                // Filter chat rooms based on search query
+                List<ChatRoom> filteredChatRooms = chatRooms.where((chatRoom) {
+                  if (searchQuery.isEmpty) return true;
+
+                  // This is a simplified filter - you might want to enhance it
+                  // to search by user names or last messages
+                  return chatRoom.lastMessage.toLowerCase().contains(searchQuery.toLowerCase());
+                }).toList();
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: filteredChatRooms.length,
+                  itemBuilder: (context, index) {
+                    ChatRoom chatRoom = filteredChatRooms[index];
+                    return _buildChatTile(chatRoom);
+                  },
+                );
+              },
+            ),
           ),
         ],
-      ),
-      body: _currentUserId == null
-          ? const Center(child: Text('Please log in to view chats'))
-          : StreamBuilder<List<ChatRoom>>(
-        stream: _chatService.getUserChatRooms(_currentUserId!),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                color: primaryGreen,
-              ),
-            );
-          }
-
-          if (snapshot.hasError) {
-            print('Error fetching chat rooms: ${snapshot.error}');
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          List<ChatRoom> chatRooms = snapshot.data!;
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: chatRooms.length,
-            itemBuilder: (context, index) {
-              ChatRoom chatRoom = chatRooms[index];
-              return _buildChatTile(chatRoom);
-            },
-          );
-        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -133,14 +172,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: lightGreen.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.chat_bubble_outline,
-              size: 80,
+              size: 50,
               color: primaryGreen.withOpacity(0.7),
             ),
           ),
@@ -398,49 +437,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
     } else {
       return 'now';
     }
-  }
-
-  void _showSearchDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.search, color: primaryGreen),
-            const SizedBox(width: 8),
-            const Text(
-              'Search Chats',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        content: TextField(
-          decoration: InputDecoration(
-            hintText: 'Search by name or message...',
-            prefixIcon: Icon(Icons.search, color: primaryGreen),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: primaryGreen),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: primaryGreen, width: 2),
-            ),
-          ),
-          onChanged: (value) {
-            // Implement search logic
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: primaryGreen),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
   }
 
   // Updated _showNewChatDialog to use current user's type
